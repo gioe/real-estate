@@ -1,0 +1,123 @@
+# Real Estate Data Analyzer Configuration
+# Copy this file and customize as needed
+
+database:
+  type: sqlite
+  sqlite_path: data/real_estate.db
+  backup_enabled: true
+  backup_interval_days: 7
+
+apis:
+  rentcast_enabled: true
+  rentcast_api_key: ""
+  rentcast_endpoint: "https://api.rentcast.io/v1"
+  rentcast_rate_limit: 100
+  rentcast_search_params:
+    locations:
+      - "San Francisco, CA"
+      - "New York, NY"
+    property_types:
+      - "Single Family"
+      - "Condo"
+    limit: 100
+
+  zillow_enabled: false
+  zillow_api_key: ""
+  zillow_endpoint: "https://api.example.com/zillow"
+  zillow_rate_limit: 60
+  zillow_search_params:
+    locations:
+      - "San Francisco, CA"
+      - "New York, NY"
+    property_types:
+      - "house"
+      - "condo"
+
+  redfin_enabled: false
+  redfin_config:
+    api_key: ""
+    endpoint: ""
+
+  mls_enabled: false
+  mls_config:
+    api_key: ""
+    endpoint: ""
+    search_params:
+      status: "active"
+      limit: 100
+
+  custom_apis: {}
+
+search_criteria:
+  price:
+    min: 300000
+    max: 800000
+  bedrooms:
+    min: 2
+  bathrooms:
+    min: 1.5
+  square_feet:
+    min: 1200
+  property_type:
+    in: ["house", "condo", "townhome"]
+  days_on_market:
+    max: 30
+  cities:
+    in: ["San Francisco", "Oakland", "San Jose"]
+
+notifications:
+  enabled_channels: ["email"]
+  email:
+    enabled: true
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: "your_email@gmail.com"
+    password: "your_app_password" # Use app password for Gmail
+    recipients:
+      - "alert_recipient@email.com"
+
+  sms:
+    enabled: false
+    provider: "twilio"
+    account_sid: ""
+    auth_token: ""
+    phone_numbers: []
+
+  slack:
+    enabled: false
+    webhook_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    channel: "#real-estate-alerts"
+
+  webhook:
+    enabled: false
+    url: ""
+    headers: {}
+
+visualization:
+  figure_size: [12, 8]
+  dpi: 300
+  format: "png"
+  style: "seaborn-v0_8"
+  color_palette: "husl"
+
+analysis:
+  enable_market_trends: true
+  enable_price_analysis: true
+  enable_location_analysis: true
+  enable_investment_analysis: true
+  outlier_detection: true
+  trend_window_days: 90
+
+scheduling:
+  enabled: false
+  fetch_interval_hours: 6
+  analysis_interval_hours: 24
+  notification_check_interval_hours: 1
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_enabled: true
+  file_path: "logs/real_estate_analyzer.log"
+  max_file_size_mb: 10
+  backup_count: 5
