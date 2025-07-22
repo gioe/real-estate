@@ -1,0 +1,397 @@
+/* Custom Styles for RentCast API Explorer */
+
+:root {
+    --primary-color: #0d6efd;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --info-color: #0dcaf0;
+    --danger-color: #dc3545;
+    --secondary-color: #6c757d;
+    --light-color: #f8f9fa;
+    --dark-color: #212529;
+}
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Enhancements */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    background-color: transparent;
+    font-weight: 600;
+}
+
+/* Form Enhancements */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Navigation */
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.navbar-nav .nav-link {
+    font-weight: 500;
+    transition: color 0.2s ease-in-out;
+}
+
+.navbar-nav .nav-link:hover {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Property/Listing Cards */
+.property-card,
+.listing-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    transition: all 0.2s ease-in-out;
+    background: white;
+}
+
+.property-card:hover,
+.listing-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.property-image,
+.listing-image {
+    height: 200px;
+    background-color: #e9ecef;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 3rem;
+}
+
+.property-details,
+.listing-details {
+    padding: 1rem;
+}
+
+.property-title,
+.listing-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--dark-color);
+}
+
+.property-address,
+.listing-address {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+.property-specs,
+.listing-specs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+}
+
+.property-price,
+.listing-price {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--success-color);
+}
+
+/* Badge Styles */
+.badge-custom {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 20px;
+}
+
+.badge-property-type {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.badge-days-on-market {
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+}
+
+.badge-status-active {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.badge-status-inactive {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+/* Comparable Properties */
+.comparable-card {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    background: white;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.comparable-card:hover {
+    border-color: var(--primary-color);
+}
+
+.comparable-price {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--success-color);
+}
+
+.comparable-distance {
+    color: var(--info-color);
+    font-weight: 500;
+}
+
+.comparable-correlation {
+    color: var(--warning-color);
+    font-weight: 500;
+}
+
+/* Market Statistics */
+.market-stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.market-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.market-stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.breakdown-table {
+    font-size: 0.9rem;
+}
+
+.breakdown-table th {
+    border-top: none;
+    font-weight: 600;
+    color: var(--secondary-color);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.breakdown-table td {
+    border-top: 1px solid #dee2e6;
+    padding: 0.75rem 0.5rem;
+}
+
+/* Pagination */
+.pagination {
+    margin-bottom: 0;
+}
+
+.page-link {
+    border-radius: 6px;
+    margin: 0 2px;
+    border: 1px solid #dee2e6;
+    color: var(--primary-color);
+}
+
+.page-link:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.page-item.active .page-link {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .property-specs,
+    .listing-specs {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .card-header h5 {
+        font-size: 1rem;
+    }
+    
+    .market-stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .breakdown-table {
+        font-size: 0.8rem;
+    }
+}
+
+/* Tab Navigation */
+.nav-pills .nav-link {
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.nav-pills .nav-link.active {
+    background-color: var(--primary-color);
+}
+
+/* Accordion */
+.accordion-button {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-color: var(--primary-color);
+}
+
+/* Progress bar for confidence ranges */
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+/* Sticky elements */
+.sticky-top {
+    z-index: 1020;
+}
+
+/* Alert enhancements */
+.alert {
+    border: none;
+    border-radius: 8px;
+}
+
+.alert-info {
+    background-color: rgba(13, 202, 240, 0.1);
+    color: #055160;
+    border-left: 4px solid var(--info-color);
+}
+
+.alert-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #664d03;
+    border-left: 4px solid var(--warning-color);
+}
+
+.alert-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #721c24;
+    border-left: 4px solid var(--danger-color);
+}
+
+.alert-success {
+    background-color: rgba(25, 135, 84, 0.1);
+    color: #0f5132;
+    border-left: 4px solid var(--success-color);
+}
+
+/* Utility classes */
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.border-end {
+    border-right: 1px solid #dee2e6 !important;
+}
+
+/* Animation classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}

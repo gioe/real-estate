@@ -61,6 +61,7 @@ The project uses a comprehensive Makefile for easy project management:
 - `make run-analyze` - Analyze existing data only
 - `make run-notify` - Check for matching properties and notify
 - `make run-verbose` - Run with verbose logging
+- `make run-web` - Start Flask web application on http://localhost:5000
 
 ### Development & Testing
 - `make test` - Run test suite with coverage

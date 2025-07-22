@@ -1,10 +1,18 @@
 # Real Estate Data Analyzer Makefile
-# Provides convenient commands for common development and execution tasks
+# Provides convenient commands for common development and execution ta## run-verbose: Run with verbose logging enabled
+run-verbose:
+	@echo "$(GREEN)Running real estate analyzer with verbose logging...$(NC)"
+	@$(PYTHON) main.py --verbose --config $(CONFIG_DIR)/config.yaml
 
-.PHONY: help install install-dev setup clean test lint format run run-fetch run-analyze run-notify run-verbose check-config demo
+## run-web: Start Flask web application
+run-web:
+	@echo "$(GREEN)Starting Flask web application...$(NC)"
+	@echo "$(YELLOW)Web interface will be available at http://localhost:5001$(NC)"
+	@$(PYTHON) run_web.py
+.PHONY: help install install-dev setup clean test lint format run run-fetch run-analyze run-notify run-verbose run-web check-config demo
 
-# Default Python interpreter
-PYTHON := python3
+# Default Python interpreter (use virtual environment if available)
+PYTHON := $(shell if [ -f .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 PIP := pip3
 
 # Project directories
@@ -40,6 +48,7 @@ help:
 	@echo "  make run-analyze  - Analyze existing data only"
 	@echo "  make run-notify   - Check for matching properties and notify"
 	@echo "  make run-verbose  - Run with verbose logging"
+	@echo "  make run-web      - Start Flask web application"
 	@echo ""
 	@echo "$(GREEN)Development & Testing:$(NC)"
 	@echo "  make test         - Run test suite"

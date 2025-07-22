@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}Properties Search - RentCast API Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-building me-2"></i>Properties Search
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Search Form -->
+    <div class="col-lg-4">
+        <div class="card sticky-top" style="top: 20px;">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-search me-2"></i>Search Criteria
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="propertiesSearchForm">
+                    <!-- Search Type Tabs -->
+                    <ul class="nav nav-pills nav-fill mb-3" id="searchTypeTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="address-tab" data-bs-toggle="pill"
+                                data-bs-target="#address-search" type="button">Address</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="location-tab" data-bs-toggle="pill"
+                                data-bs-target="#location-search" type="button">Location</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="geo-tab" data-bs-toggle="pill" data-bs-target="#geo-search"
+                                type="button">Geo</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="searchTypeContent">
+                        <!-- Address Search -->
+                        <div class="tab-pane fade show active" id="address-search" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="address" class="form-label">Property Address</label>
+                                <input type="text" class="form-control" id="address" name="address"
+                                    placeholder="e.g., 123 Main St, Austin, TX 78701">
+                                <div class="form-text">Enter complete address including city and state</div>
+                            </div>
+                        </div>
+
+                        <!-- Location Search -->
+                        <div class="tab-pane fade" id="location-search" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="city" class="form-label">City</label>
+                                <input type="text" class="form-control" id="city" name="city"
+                                    placeholder="e.g., Austin">
+                            </div>
+                            <div class="mb-3">
+                                <label for="state" class="form-label">State</label>
+                                <input type="text" class="form-control" id="state" name="state" placeholder="e.g., TX"
+                                    maxlength="2">
+                            </div>
+                            <div class="mb-3">
+                                <label for="zipcode" class="form-label">Zip Code</label>
+                                <input type="text" class="form-control" id="zipcode" name="zipcode"
+                                    placeholder="e.g., 78701">
+                            </div>
+                        </div>
+
+                        <!-- Geographical Search -->
+                        <div class="tab-pane fade" id="geo-search" role="tabpanel">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="latitude" class="form-label">Latitude</label>
+                                        <input type="number" class="form-control" id="latitude" name="latitude"
+                                            step="any" placeholder="e.g., 30.2672">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <label for="longitude" class="form-label">Longitude</label>
+                                        <input type="number" class="form-control" id="longitude" name="longitude"
+                                            step="any" placeholder="e.g., -97.7431">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="radius" class="form-label">Radius (miles)</label>
+                                <input type="number" class="form-control" id="radius" name="radius" min="0.1" max="50"
+                                    step="0.1" placeholder="e.g., 5">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Property Filters -->
+                    <hr>
+                    <h6 class="text-muted">Property Filters</h6>
+
+                    <div class="mb-3">
+                        <label for="property_type" class="form-label">Property Type</label>
+                        <select class="form-select" id="property_type" name="property_type">
+                            <option value="">Any</option>
+                            <option value="Single Family">Single Family</option>
+                            <option value="Condo">Condo</option>
+                            <option value="Townhouse">Townhouse</option>
+                            <option value="Multi Family">Multi Family</option>
+                            <option value="Apartment">Apartment</option>
+                            <option value="Mobile Home">Mobile Home</option>
+                            <option value="Manufactured">Manufactured</option>
+                            <option value="Land">Land</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="bedrooms" class="form-label">Bedrooms</label>
+                                <select class="form-select" id="bedrooms" name="bedrooms">
+                                    <option value="">Any</option>
+                                    <option value="0">Studio</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5+</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="bathrooms" class="form-label">Bathrooms</label>
+                                <select class="form-select" id="bathrooms" name="bathrooms">
+                                    <option value="">Any</option>
+                                    <option value="1">1</option>
+                                    <option value="1.5">1.5</option>
+                                    <option value="2">2</option>
+                                    <option value="2.5">2.5</option>
+                                    <option value="3">3</option>
+                                    <option value="3.5">3.5</option>
+                                    <option value="4">4+</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="min_sqft" class="form-label">Min Sq Ft</label>
+                                <input type="number" class="form-control" id="min_sqft" name="min_sqft" min="0"
+                                    step="100" placeholder="e.g., 1000">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="max_sqft" class="form-label">Max Sq Ft</label>
+                                <input type="number" class="form-control" id="max_sqft" name="max_sqft" min="0"
+                                    step="100" placeholder="e.g., 3000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="min_year_built" class="form-label">Min Year Built</label>
+                                <input type="number" class="form-control" id="min_year_built" name="min_year_built"
+                                    min="1800" max="2025" placeholder="e.g., 1990">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="max_year_built" class="form-label">Max Year Built</label>
+                                <input type="number" class="form-control" id="max_year_built" name="max_year_built"
+                                    min="1800" max="2025" placeholder="e.g., 2020">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Per Page -->
+                    <div class="mb-3">
+                        <label for="limit" class="form-label">Results Per Page</label>
+                        <select class="form-select" id="limit" name="limit">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Search Properties
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="col-lg-8">
+        <div id="resultsSection" style="display: none;">
+            <!-- Results Summary -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-0">Search Results</h5>
+                    <small class="text-muted" id="resultsCount">Found 0 properties</small>
+                </div>
+                <div id="paginationControls" class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="prevPage" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="nextPage" disabled>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Container -->
+            <div id="resultsContainer">
+                <!-- Results will be loaded here -->
+            </div>
+
+            <!-- Pagination Footer -->
+            <div class="d-flex justify-content-center mt-4" id="bottomPagination">
+                <!-- Pagination will be loaded here -->
+            </div>
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResultsMessage" style="display: none;">
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h4>No Properties Found</h4>
+                <p class="text-muted">Try adjusting your search criteria or expanding your search area.</p>
+            </div>
+        </div>
+
+        <!-- Initial Help -->
+        <div id="initialHelp">
+            <div class="text-center py-5">
+                <i class="fas fa-building fa-3x text-primary mb-3"></i>
+                <h4>Ready to Search Properties</h4>
+                <p class="text-muted">Use the search form on the left to find properties by address, location, or
+                    geographical coordinates.</p>
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-map-marker-alt fa-2x text-primary mb-2"></i>
+                                <h6>Address Search</h6>
+                                <small class="text-muted">Search for a specific property address</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-city fa-2x text-success mb-2"></i>
+                                <h6>Location Search</h6>
+                                <small class="text-muted">Find properties in a city or zip code</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <i class="fas fa-globe fa-2x text-warning mb-2"></i>
+                                <h6>Geo Search</h6>
+                                <small class="text-muted">Search within a radius of coordinates</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/properties.js') }}"></script>
+{% endblock %}

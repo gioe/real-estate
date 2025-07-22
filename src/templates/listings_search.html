@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Listings Search - RentCast API Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-list me-2"></i>Listings Search
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Search Form -->
+    <div class="col-lg-4">
+        <div class="card sticky-top" style="top: 20px;">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-search me-2"></i>Search Criteria
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="listingsSearchForm">
+                    <!-- Listing Type -->
+                    <div class="mb-3">
+                        <label class="form-label">Listing Type</label>
+                        <div class="btn-group w-100" role="group" aria-label="Listing type">
+                            <input type="radio" class="btn-check" name="listing_type" id="sale" value="sale" checked>
+                            <label class="btn btn-outline-primary" for="sale">
+                                <i class="fas fa-home me-1"></i>Sale
+                            </label>
+
+                            <input type="radio" class="btn-check" name="listing_type" id="rental" value="rental">
+                            <label class="btn btn-outline-primary" for="rental">
+                                <i class="fas fa-key me-1"></i>Rental
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Location Search -->
+                    <h6 class="text-muted">Location</h6>
+                    <div class="mb-3">
+                        <label for="city" class="form-label">City</label>
+                        <input type="text" class="form-control" id="city" name="city" placeholder="e.g., Austin">
+                    </div>
+                    <div class="mb-3">
+                        <label for="state" class="form-label">State</label>
+                        <input type="text" class="form-control" id="state" name="state" placeholder="e.g., TX"
+                            maxlength="2">
+                    </div>
+                    <div class="mb-3">
+                        <label for="zipcode" class="form-label">Zip Code</label>
+                        <input type="text" class="form-control" id="zipcode" name="zipcode" placeholder="e.g., 78701">
+                    </div>
+
+                    <!-- Geographical Search -->
+                    <div class="accordion mb-3" id="geoAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="geoHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#geoCollapse">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Geographical Search
+                                </button>
+                            </h2>
+                            <div id="geoCollapse" class="accordion-collapse collapse" data-bs-parent="#geoAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label for="latitude" class="form-label">Latitude</label>
+                                                <input type="number" class="form-control" id="latitude" name="latitude"
+                                                    step="any" placeholder="30.2672">
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="mb-3">
+                                                <label for="longitude" class="form-label">Longitude</label>
+                                                <input type="number" class="form-control" id="longitude"
+                                                    name="longitude" step="any" placeholder="-97.7431">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="radius" class="form-label">Radius (miles)</label>
+                                        <input type="number" class="form-control" id="radius" name="radius" min="0.1"
+                                            max="50" step="0.1" placeholder="5">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Property Filters -->
+                    <hr>
+                    <h6 class="text-muted">Property Details</h6>
+
+                    <div class="mb-3">
+                        <label for="property_type" class="form-label">Property Type</label>
+                        <select class="form-select" id="property_type" name="property_type">
+                            <option value="">Any</option>
+                            <option value="Single Family">Single Family</option>
+                            <option value="Condo">Condo</option>
+                            <option value="Townhouse">Townhouse</option>
+                            <option value="Multi Family">Multi Family</option>
+                            <option value="Apartment">Apartment</option>
+                            <option value="Mobile Home">Mobile Home</option>
+                            <option value="Manufactured">Manufactured</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="bedrooms" class="form-label">Bedrooms</label>
+                                <select class="form-select" id="bedrooms" name="bedrooms">
+                                    <option value="">Any</option>
+                                    <option value="0">Studio</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5+</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="bathrooms" class="form-label">Bathrooms</label>
+                                <select class="form-select" id="bathrooms" name="bathrooms">
+                                    <option value="">Any</option>
+                                    <option value="1">1</option>
+                                    <option value="1.5">1.5</option>
+                                    <option value="2">2</option>
+                                    <option value="2.5">2.5</option>
+                                    <option value="3">3</option>
+                                    <option value="3.5">3.5</option>
+                                    <option value="4">4+</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="min_sqft" class="form-label">Min Sq Ft</label>
+                                <input type="number" class="form-control" id="min_sqft" name="min_sqft" min="0"
+                                    step="100" placeholder="1000">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="max_sqft" class="form-label">Max Sq Ft</label>
+                                <input type="number" class="form-control" id="max_sqft" name="max_sqft" min="0"
+                                    step="100" placeholder="3000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Price/Rent Filters -->
+                    <hr>
+                    <h6 class="text-muted">
+                        <span id="priceLabel">Price Range</span>
+                    </h6>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="min_price" class="form-label" id="minPriceLabel">Min Price</label>
+                                <input type="number" class="form-control price-input" id="min_price" name="min_price"
+                                    min="0" step="1000" placeholder="300000">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="max_price" class="form-label" id="maxPriceLabel">Max Price</label>
+                                <input type="number" class="form-control price-input" id="max_price" name="max_price"
+                                    min="0" step="1000" placeholder="800000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rental-specific fields (hidden by default) -->
+                    <div class="row" id="rentFields" style="display: none;">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="min_rent" class="form-label">Min Rent</label>
+                                <input type="number" class="form-control" id="min_rent" name="min_rent" min="0"
+                                    step="100" placeholder="1500">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="max_rent" class="form-label">Max Rent</label>
+                                <input type="number" class="form-control" id="max_rent" name="max_rent" min="0"
+                                    step="100" placeholder="4000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Days on Market -->
+                    <div class="mb-3">
+                        <label for="max_days_on_market" class="form-label">Max Days on Market</label>
+                        <input type="number" class="form-control" id="max_days_on_market" name="max_days_on_market"
+                            min="1" placeholder="90">
+                        <div class="form-text">Find recently listed properties</div>
+                    </div>
+
+                    <!-- Results Per Page -->
+                    <div class="mb-3">
+                        <label for="limit" class="form-label">Results Per Page</label>
+                        <select class="form-select" id="limit" name="limit">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-search me-2"></i>Search Listings
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="col-lg-8">
+        <div id="resultsSection" style="display: none;">
+            <!-- Results Summary -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-0">
+                        <span id="listingTypeHeader">Sale</span> Listings
+                    </h5>
+                    <small class="text-muted" id="resultsCount">Found 0 listings</small>
+                </div>
+                <div id="paginationControls" class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="prevPage" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="nextPage" disabled>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Container -->
+            <div id="resultsContainer">
+                <!-- Results will be loaded here -->
+            </div>
+
+            <!-- Pagination Footer -->
+            <div class="d-flex justify-content-center mt-4" id="bottomPagination">
+                <!-- Pagination will be loaded here -->
+            </div>
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResultsMessage" style="display: none;">
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h4>No Listings Found</h4>
+                <p class="text-muted">Try adjusting your search criteria or expanding your search area.</p>
+            </div>
+        </div>
+
+        <!-- Initial Help -->
+        <div id="initialHelp">
+            <div class="text-center py-5">
+                <i class="fas fa-list fa-3x text-success mb-3"></i>
+                <h4>Ready to Search Listings</h4>
+                <p class="text-muted">Search for active sale and rental listings with detailed information.</p>
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-home fa-2x text-primary mb-2"></i>
+                                <h6>Sale Listings</h6>
+                                <small class="text-muted">Properties currently for sale with pricing and agent
+                                    details</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-info">
+                            <div class="card-body text-center">
+                                <i class="fas fa-key fa-2x text-info mb-2"></i>
+                                <h6>Rental Listings</h6>
+                                <small class="text-muted">Long-term rental properties with rental rates and
+                                    terms</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/listings.js') }}"></script>
+{% endblock %}

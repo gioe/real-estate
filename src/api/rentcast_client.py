@@ -13,11 +13,12 @@ import json
 from .http_client import BaseHTTPClient, RateLimiter, HTTPClientError
 from .rentcast_errors import (
     RentCastAPIError, 
-    RentCastNoResultsError,
-    is_retryable_error,
-    log_error_details,
-    get_error_recommendation
+    RentCastClientError, 
+    RentCastNoResultsError
 )
+
+if TYPE_CHECKING:
+    from src.schemas.rentcast_schemas import PropertiesResponse, ListingsResponse, AVMValueResponse
 from ..schemas.rentcast_schemas import Property, PropertiesResponse, parse_property_response
 
 if TYPE_CHECKING:
@@ -111,7 +112,7 @@ class RentCastClient:
         
         except RentCastAPIError as e:
             # Log detailed error information
-            log_error_details(e)
+            logger.error(f"RentCast API error for endpoint {endpoint}: {e}")
             
             # For "no results" errors, we might want to handle them gracefully
             if isinstance(e, RentCastNoResultsError):
@@ -448,7 +449,7 @@ class RentCastClient:
                       city: Optional[str] = None, state: Optional[str] = None,
                       propertyType: Optional[str] = None, bedrooms: Optional[int] = None,
                       bathrooms: Optional[float] = None, squareFootage: Optional[int] = None,
-                      **kwargs) -> Dict[str, Any]:
+                      **kwargs) -> 'AVMValueResponse':
         """
         Get Automated Valuation Model (AVM) property value estimate.
         
@@ -464,7 +465,7 @@ class RentCastClient:
             **kwargs: Additional query parameters
             
         Returns:
-            Dict containing AVM value estimate
+            AVMValueResponse containing property value estimate
         """
         params: Dict[str, Union[str, int, float]] = {}
         
@@ -498,7 +499,10 @@ class RentCastClient:
         
         try:
             response_data = self.client.get(self.ENDPOINTS['avm_value'], params=params)
-            return self._validate_response(response_data)
+            validated_response = self._validate_response(response_data)
+            # Import here to avoid circular imports
+            from src.schemas.rentcast_schemas import AVMValueResponse
+            return AVMValueResponse.from_dict(validated_response)
         
         except HTTPClientError as e:
             logger.error(f"Failed to get AVM value: {e}")
@@ -569,7 +573,7 @@ class RentCastClient:
                           propertyType: Optional[str] = None, bedrooms: Optional[int] = None,
                           bathrooms: Optional[float] = None, minPrice: Optional[int] = None,
                           maxPrice: Optional[int] = None, limit: int = 20, offset: int = 0,
-                          **kwargs) -> PropertiesResponse:
+                          **kwargs) -> 'ListingsResponse':
         """
         Get properties for sale listings.
         
@@ -628,7 +632,51 @@ class RentCastClient:
         try:
             response_data = self.client.get(self.ENDPOINTS['listings_sale'], params=params)
             validated_response = self._validate_response(response_data)
-            return PropertiesResponse.from_dict(validated_response)
+            
+            # Import here to avoid circular imports
+            from src.schemas.rentcast_schemas import ListingsResponse, PropertyListing
+            
+            # The listings/sale endpoint returns a list of listings directly
+            if isinstance(validated_response, list):
+                listings = []
+                for listing_data in validated_response:
+                    # Map the listing data to PropertyListing format
+                    mapped_data = {
+                        'id': listing_data.get('id'),
+                        'formatted_address': listing_data.get('formattedAddress'),
+                        'address_line1': listing_data.get('addressLine1'),
+                        'address_line2': listing_data.get('addressLine2'),
+                        'city': listing_data.get('city'),
+                        'state': listing_data.get('state'),
+                        'zip_code': listing_data.get('zipCode'),
+                        'county': listing_data.get('county'),
+                        'price': listing_data.get('price'),
+                        'status': listing_data.get('status'),
+                        'listing_type': listing_data.get('listingType'),
+                        'property_type': listing_data.get('propertyType'),
+                        'latitude': listing_data.get('latitude'),
+                        'longitude': listing_data.get('longitude'),
+                        'days_on_market': listing_data.get('daysOnMarket'),
+                        'listed_date': listing_data.get('listedDate'),
+                        'removed_date': listing_data.get('removedDate'),
+                        'mls_number': listing_data.get('mlsNumber'),
+                        'mls_name': listing_data.get('mlsName'),
+                        'listing_agent': listing_data.get('listingAgent'),
+                        'listing_office': listing_data.get('listingOffice'),
+                        'lot_size': listing_data.get('lotSize'),
+                        'hoa': listing_data.get('hoa'),
+                        'history': listing_data.get('history')
+                    }
+                    listings.append(PropertyListing.from_dict(mapped_data))
+                
+                return ListingsResponse(
+                    listings=listings,
+                    total_count=len(listings)  # API doesn't provide total count for direct list
+                )
+            else:
+                # Fallback if response format is unexpected
+                logger.warning(f"Unexpected response format for listings/sale: {type(validated_response)}")
+                return PropertiesResponse.from_dict(validated_response)
         
         except HTTPClientError as e:
             logger.error(f"Failed to get sale listings: {e}")
@@ -775,7 +823,7 @@ class RentCastClient:
         if state:
             params['state'] = state
         if zipcode:
-            params['zipcode'] = zipcode
+            params['zipCode'] = zipcode  # Fix parameter name to match API expectation
         
         # Add any additional parameters
         params.update(kwargs)

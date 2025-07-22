@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Property Details - RentCast API Explorer{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('properties_search') }}">Properties</a></li>
+                <li class="breadcrumb-item active">Property Details</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Property Overview -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-home me-2"></i>Property Overview
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5>{{ property.formatted_address or property.formattedAddress or 'Address Not Available' }}
+                        </h5>
+                        <p class="text-muted">{{ property.city or '' }}, {{ property.state or '' }}
+                            {{ property.zip_code or property.zipCode or '' }}</p>
+
+                        <div class="row mt-3">
+                            <div class="col-sm-6">
+                                <p><strong>Property Type:</strong>
+                                    {{ property.property_type or property.propertyType or 'N/A' }}</p>
+                                <p><strong>Bedrooms:</strong> {{ property.bedrooms or 0 }}</p>
+                                <p><strong>Bathrooms:</strong> {{ property.bathrooms or 0 }}</p>
+                            </div>
+                            <div class="col-sm-6">
+                                {% if property.square_footage or property.squareFootage %}
+                                <p><strong>Square Footage:</strong>
+                                    {{ "{:,}".format(property.square_footage or property.squareFootage) }} sq ft</p>
+                                {% endif %}
+                                {% if property.lot_size or property.lotSize %}
+                                <p><strong>Lot Size:</strong> {{ "{:,}".format(property.lot_size or property.lotSize) }}
+                                    sq ft</p>
+                                {% endif %}
+                                {% if property.year_built or property.yearBuilt %}
+                                <p><strong>Year Built:</strong> {{ property.year_built or property.yearBuilt }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="property-image">
+                            <i class="fas fa-home"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Property Details -->
+        {% if property.assessed_value or property.assessedValue or property.estimated_value or property.estimatedValue %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-dollar-sign me-2"></i>Valuation
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if property.assessed_value or property.assessedValue %}
+                    <div class="col-md-6">
+                        <h6>Assessed Value</h6>
+                        <p class="h4 text-success">
+                            ${{ "{:,}".format(property.assessed_value or property.assessedValue) }}</p>
+                    </div>
+                    {% endif %}
+                    {% if property.estimated_value or property.estimatedValue %}
+                    <div class="col-md-6">
+                        <h6>Estimated Value</h6>
+                        <p class="h4 text-primary">
+                            ${{ "{:,}".format(property.estimated_value or property.estimatedValue) }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Owner Information -->
+        {% if property.owner_name or property.ownerName %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user me-2"></i>Owner Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Owner:</strong> {{ property.owner_name or property.ownerName }}</p>
+                {% if property.owner_type or property.ownerType %}
+                <p><strong>Owner Type:</strong> {{ property.owner_type or property.ownerType }}</p>
+                {% endif %}
+                {% if property.mailing_address or property.mailingAddress %}
+                <p><strong>Mailing Address:</strong> {{ property.mailing_address or property.mailingAddress }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('avm_search') }}" class="btn btn-primary">
+                        <i class="fas fa-calculator me-2"></i>Get AVM Estimate
+                    </a>
+                    <a href="{{ url_for('markets_search') }}" class="btn btn-info">
+                        <i class="fas fa-chart-bar me-2"></i>View Market Data
+                    </a>
+                    <button onclick="window.print()" class="btn btn-outline-secondary">
+                        <i class="fas fa-print me-2"></i>Print Details
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-map-marker-alt me-2"></i>Location
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if property.latitude and property.longitude %}
+                <p><strong>Latitude:</strong> {{ property.latitude }}</p>
+                <p><strong>Longitude:</strong> {{ property.longitude }}</p>
+                {% endif %}
+                {% if property.county %}
+                <p><strong>County:</strong> {{ property.county }}</p>
+                {% endif %}
+                {% if property.zip_code or property.zipCode %}
+                <p><strong>ZIP Code:</strong> {{ property.zip_code or property.zipCode }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Property ID -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-id-card me-2"></i>Property ID
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0"><code>{{ property.id }}</code></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -45,6 +45,11 @@ class RentCastAPIError(Exception):
         return f"RentCast API Error: {self.message}"
 
 
+class RentCastClientError(RentCastAPIError):
+    """Client-side error (not from API response but from client logic)."""
+    pass
+
+
 class RentCastSuccessResponse(RentCastAPIError):
     """200 - Success: Request completed successfully."""
     pass
