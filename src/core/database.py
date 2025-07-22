@@ -748,3 +748,110 @@ class DatabaseManager:
         """Close database connections."""
         # For SQLite, connections are closed automatically when using context manager
         pass
+    
+    def create_deal_analysis_tables(self):
+        """Create tables for deal analysis pipeline."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Main deal analyses table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS deal_analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    analysis_id TEXT UNIQUE NOT NULL,
+                    property_address TEXT NOT NULL,
+                    property_data TEXT NOT NULL,
+                    avm_data TEXT,
+                    market_data TEXT,
+                    deal_score_data TEXT NOT NULL,
+                    analysis_timestamp DATETIME NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Deal insights summary table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS deal_insights (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    analysis_id TEXT NOT NULL,
+                    property_address TEXT NOT NULL,
+                    zip_code TEXT,
+                    property_type TEXT,
+                    bedrooms INTEGER,
+                    bathrooms REAL,
+                    square_footage INTEGER,
+                    asking_price INTEGER,
+                    estimated_value INTEGER,
+                    overall_score REAL NOT NULL,
+                    deal_type TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    value_discount_pct REAL,
+                    analysis_date DATE NOT NULL,
+                    FOREIGN KEY (analysis_id) REFERENCES deal_analyses(analysis_id)
+                )
+            ''')
+            
+            # Create indexes
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_score ON deal_insights(overall_score DESC)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_type ON deal_insights(deal_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_zip ON deal_insights(zip_code)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_date ON deal_insights(analysis_date DESC)')
+            
+            conn.commit()
+            logger.info("Deal analysis database tables created successfully")
+    
+    def store_deal_analysis(self, analysis_id: str, property_data: Dict[str, Any], 
+                           avm_data: Optional[Dict[str, Any]], market_data: Optional[Dict[str, Any]],
+                           deal_score_data: Dict[str, Any], analysis_timestamp: datetime):
+        """Store complete deal analysis results."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Store in main analyses table
+            cursor.execute('''
+                INSERT OR REPLACE INTO deal_analyses 
+                (analysis_id, property_address, property_data, avm_data, market_data, deal_score_data, analysis_timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                analysis_id, property_data.get('formattedAddress', ''),
+                json.dumps(property_data), json.dumps(avm_data) if avm_data else None,
+                json.dumps(market_data) if market_data else None, json.dumps(deal_score_data),
+                analysis_timestamp.isoformat()
+            ))
+            
+            # Store in insights summary table
+            cursor.execute('''
+                INSERT OR REPLACE INTO deal_insights 
+                (analysis_id, property_address, zip_code, property_type, bedrooms, bathrooms, 
+                 square_footage, asking_price, estimated_value, overall_score, deal_type, 
+                 confidence, value_discount_pct, analysis_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                analysis_id, property_data.get('formattedAddress', ''), property_data.get('zipCode'),
+                property_data.get('propertyType'), property_data.get('bedrooms'), property_data.get('bathrooms'),
+                property_data.get('squareFootage'), property_data.get('price'), deal_score_data.get('estimated_value'),
+                deal_score_data.get('overall_score'), deal_score_data.get('deal_type'),
+                deal_score_data.get('confidence'), deal_score_data.get('value_discount_pct'),
+                analysis_timestamp.date().isoformat()
+            ))
+            
+            conn.commit()
+    
+    def get_best_deals(self, zip_code: Optional[str] = None, min_score: float = 70.0, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get the best deals from recent analyses."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            query = 'SELECT * FROM deal_insights WHERE overall_score >= ? AND analysis_date >= date("now", "-30 days")'
+            params = [min_score]
+            
+            if zip_code:
+                query += ' AND zip_code = ?'
+                params.append(zip_code)
+            
+            query += ' ORDER BY overall_score DESC LIMIT ?'
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]

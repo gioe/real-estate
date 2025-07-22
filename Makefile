@@ -8,7 +8,7 @@ run-verbose:
 run-web:
 	@echo "$(GREEN)Starting Flask web application...$(NC)"
 	@echo "$(YELLOW)Web interface will be available at http://localhost:5001$(NC)"
-	@$(PYTHON) run_web.py
+	@$(PYTHON) scripts/run_web.py
 .PHONY: help install install-dev setup clean test lint format run run-fetch run-analyze run-notify run-verbose run-web check-config demo
 
 # Default Python interpreter (use virtual environment if available)
