@@ -2,291 +2,157 @@
 
 A comprehensive Python scripting project for fetching, analyzing, and monitoring real estate data. This tool automatically gathers property listings from multiple sources, performs market analysis, generates visualizations, and sends notifications when properties matching your criteria are found.
 
-## Features
-
-- **Multi-Source Data Fetching**: Supports multiple real estate APIs (Zillow, MLS, Redfin, custom APIs)
-- **Comprehensive Analysis**: Market trends, price analysis, location insights, and investment opportunities
-- **Automated Visualizations**: Generates charts and graphs for market analysis
-- **Smart Notifications**: Email, SMS, Slack, and webhook notifications for matching properties
-- **Flexible Configuration**: YAML-based configuration with environment variable support
-- **Database Storage**: SQLite database for data persistence and historical analysis
-- **Scheduling Support**: Run analysis on a schedule or manually
-
-## Project Structure
-
-```
-real-estate/
-├── main.py                     # Main entry point
-├── src/                        # Core modules
-│   ├── data_fetcher.py        # Data fetching from various APIs
-│   ├── data_analyzer.py       # Market analysis and insights
-│   ├── visualization.py       # Graph and chart generation
-│   ├── notification_system.py # Alert notifications
-│   ├── config_manager.py      # Configuration management
-│   └── database.py            # Database operations
-├── config/                     # Configuration files
-│   ├── config.yaml            # Main configuration
-│   └── .env.example          # Environment variables template
-├── data/                       # Data storage (SQLite database)
-├── output/                     # Generated reports and visualizations
-├── logs/                       # Application logs
-└── requirements.txt           # Python dependencies
-```
-
 ## Quick Start
 
-### 1. Installation
+### 1. Installation & Setup
 
 ```bash
 # Clone or navigate to the project directory
 cd real-estate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies and setup project
+make install
+make setup
 ```
 
 ### 2. Configuration
 
-1. Copy the environment variables template:
-   ```bash
-   cp config/.env.example .env
-   ```
+The `make setup` command will create template configuration files:
 
-2. Edit `.env` and add your API keys and notification credentials:
+1. Edit `.env` and add your API keys:
    ```bash
+   RENTCAST_API_KEY=your_api_key_here
    EMAIL_USERNAME=your_email@gmail.com
    EMAIL_PASSWORD=your_app_password
-   EMAIL_RECIPIENTS=alerts@yourdomain.com
    ```
 
-3. Customize `config/config.yaml` for your search criteria and preferences.
+2. Customize `config/config.yaml` for your search criteria and preferences.
 
 ### 3. Run the Analyzer
 
 ```bash
-# Run all operations (fetch, analyze, notify)
-python main.py
+# See all available commands
+make help
+
+# Run all operations (recommended)
+make run
 
 # Run specific operations
-python main.py --mode fetch     # Only fetch new data
-python main.py --mode analyze   # Only analyze existing data
-python main.py --mode notify    # Only check for matching properties
+make run-fetch     # Only fetch new data
+make run-analyze   # Only analyze existing data
+make run-notify    # Only check for matching properties
 
-# Enable verbose logging
-python main.py --verbose
+# Run with detailed logging
+make run-verbose
 ```
 
-## Configuration
+## Makefile Commands
 
-### Search Criteria
+The project uses a comprehensive Makefile for easy project management:
 
-Customize `config/config.yaml` to define what properties you're interested in:
+### Setup & Installation
+- `make install` - Install production dependencies
+- `make install-dev` - Install development dependencies
+- `make setup` - Initialize project directories and config files
 
-```yaml
-search_criteria:
-  price:
-    min: 300000
-    max: 800000
-  bedrooms:
-    min: 2
-  bathrooms:
-    min: 1.5
-  cities:
-    in: ["San Francisco", "Oakland", "San Jose"]
-  property_type:
-    in: ["house", "condo", "townhome"]
-  days_on_market:
-    max: 30
-```
+### Application Execution
+- `make run` - Run all operations (fetch, analyze, notify)
+- `make run-fetch` - Fetch new real estate data only
+- `make run-analyze` - Analyze existing data only
+- `make run-notify` - Check for matching properties and notify
+- `make run-verbose` - Run with verbose logging
 
-### Notification Channels
+### Development & Testing
+- `make test` - Run test suite with coverage
+- `make lint` - Run linting (flake8, mypy)
+- `make format` - Format code with black
+- `make check-config` - Validate configuration files
 
-Enable multiple notification channels:
+### Utilities
+- `make clean` - Clean generated files and caches
+- `make demo` - Run interactive demo
+- `make logs` - Show recent application logs
+- `make status` - Show project status and configuration
 
-```yaml
-notifications:
-  enabled_channels: ["email", "slack"]
-  email:
-    enabled: true
-    recipients:
-      - "your-email@example.com"
-  slack:
-    enabled: true
-    webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-```
-
-### API Sources
-
-Configure multiple data sources:
-
-```yaml
-apis:
-  zillow_enabled: true
-  zillow_api_key: "your_api_key"
-  
-  mls_enabled: true
-  mls_config:
-    api_key: "your_mls_key"
-    endpoint: "https://api.mls.com/search"
-```
-
-## API Integration
-
-### Supported Sources
-
-- **Zillow**: Requires API key (limited access)
-- **MLS**: Multiple Listing Service integration
-- **Redfin**: Limited public API
-- **Custom APIs**: Configure any REST API endpoint
-
-### Adding Custom Data Sources
-
-Add custom API sources in your configuration:
-
-```yaml
-apis:
-  custom_apis:
-    my_custom_api:
-      endpoint: "https://api.example.com/properties"
-      headers:
-        Authorization: "Bearer YOUR_TOKEN"
-      properties_key: "listings"
-      field_mapping:
-        property_id: "id"
-        address: "full_address"
-        price: "listing_price"
-```
-
-## Analysis Features
-
-### Market Trends
-- Price trends over time
-- Listing volume analysis
-- Market direction indicators
-
-### Price Analysis
-- Price distribution statistics
-- Price per square foot analysis
-- Outlier detection
-
-### Location Analysis
-- City-by-city comparisons
-- Market hotspots identification
-- Geographic price variations
-
-### Investment Opportunities
-- Underpriced property identification
-- Long-time-on-market properties
-- High-potential areas
-
-## Generated Outputs
-
-The analyzer creates:
-
-- **Visualizations**: Graphs and charts in `output/[timestamp]/`
-- **Database**: SQLite database with all fetched properties
-- **Logs**: Detailed execution logs in `logs/`
-- **Notifications**: Alerts for matching properties
-
-## Scheduling
-
-Set up automated runs using the built-in scheduler or cron:
-
-```yaml
-# In config.yaml
-scheduling:
-  enabled: true
-  fetch_interval_hours: 6      # Fetch new data every 6 hours
-  analysis_interval_hours: 24  # Run analysis daily
-  notification_check_interval_hours: 1  # Check for matches hourly
-```
-
-Or use cron for system-level scheduling:
-```bash
-# Run every 6 hours
-0 */6 * * * cd /path/to/real-estate && python main.py --mode fetch
-
-# Daily analysis at 8 AM
-0 8 * * * cd /path/to/real-estate && python main.py --mode analyze
-```
-
-## Notification Examples
-
-### Email Alerts
-Receive formatted emails when properties match your criteria:
-
-```
-Subject: New Property Alert - 3 Properties Found
-
-Found 3 properties matching your criteria:
-
-1. 123 Main St, San Francisco, CA
-   Price: $750,000 | 3/2 | 1,500 sq ft
-   Days on Market: 5
-```
-
-### Slack Integration
-Get instant Slack notifications with property details and direct links.
-
-## Database Schema
-
-The SQLite database includes:
-- `properties`: All fetched property data
-- `analysis_results`: Historical analysis results
-- `notifications_log`: Notification history
-
-## Development
-
-### Adding New Features
-
-1. **New Data Sources**: Add fetcher methods in `data_fetcher.py`
-2. **Analysis Types**: Extend `data_analyzer.py` with new analysis functions
-3. **Visualizations**: Add chart types in `visualization.py`
-4. **Notification Channels**: Implement new notifiers in `notification_system.py`
-
-### Testing
+### Example Workflows
 
 ```bash
-# Run with verbose logging to debug
-python main.py --verbose
+# First-time setup
+make install-dev && make setup
 
-# Check database contents
-sqlite3 data/real_estate.db "SELECT COUNT(*) FROM properties;"
+# Daily usage
+make run
+
+# Development workflow
+make format lint test
+
+# Check project status
+make status
+make logs
 ```
 
-## Security Notes
+## Documentation
 
-- Never commit API keys or credentials to version control
-- Use environment variables for sensitive configuration
-- Respect API rate limits and terms of service
-- Consider using API key rotation for production use
+**📚 For complete project documentation, development guidelines, API schemas, and detailed usage examples, see [.github/copilot-instructions.md](.github/copilot-instructions.md)**
 
-## Troubleshooting
+The copilot-instructions.md file contains:
+- Complete API integration documentation
+- Schema definitions and usage examples
+- Search query system documentation
+- Pagination and data processing guides
+- Configuration management details
+- Development guidelines and best practices
 
-### Common Issues
+## Features
 
-1. **No properties found**: Check API keys and search criteria
-2. **Email notifications not working**: Verify SMTP settings and app passwords
-3. **Database errors**: Ensure write permissions to `data/` directory
-4. **API rate limits**: Reduce fetch frequency or implement caching
+- **Multi-Source Data Fetching**: Comprehensive RentCast API integration
+- **Advanced Analysis**: Market trends, AVM valuations, investment analysis
+- **Automated Visualizations**: Charts and graphs for market analysis
+- **Smart Notifications**: Multi-channel alerts for matching properties
+- **Flexible Configuration**: YAML-based configuration with environment variables
+- **Database Storage**: SQLite/PostgreSQL for data persistence
+- **Makefile Integration**: Easy project management with make commands
+- **Robust Error Handling**: RFC 9110 compliant RentCast API error handling with intelligent retries
 
-### Logging
+## Error Handling
 
-Enable detailed logging:
-```bash
-python main.py --verbose
+The project includes comprehensive error handling for the RentCast API:
+
+- **RFC 9110 Compliant**: Follows standard HTTP status code specifications
+- **RentCast-Specific Errors**: Custom exceptions for each API response code (400, 401, 404, 429, 500, 504)
+- **Intelligent Retry Logic**: Automatic retries with exponential backoff for retryable errors
+- **Rate Limit Compliance**: Respects RentCast's 20 requests/second limit
+- **Graceful Degradation**: Handles "no results" scenarios without failing
+- **Detailed Recommendations**: Specific guidance for each error type
+
+See [docs/rentcast_error_handling.md](docs/rentcast_error_handling.md) for complete documentation.
+
+## Project Structure
+
+```
+real-estate/
+├── Makefile                    # Project management commands
+├── main.py                     # Main entry point
+├── src/                        # Core modules organized by function
+│   ├── api/                   # HTTP clients and API integration
+│   ├── core/                  # Business logic and data processing
+│   ├── config/                # Configuration management
+│   ├── notifications/         # Alert and notification system
+│   ├── schemas/               # Data models and API schemas
+│   └── visualization/         # Chart and graph generation
+├── config/                     # Configuration files
+├── data/                       # Data storage
+├── output/                     # Generated reports and visualizations
+└── logs/                       # Application logs
 ```
 
-Check logs in `logs/real_estate_analyzer.log` for detailed error information.
+## Requirements
+
+- Python 3.9+
+- Make (available on macOS/Linux, Windows with WSL)
+- RentCast API key (for real estate data)
+- Email credentials (for notifications)
 
 ## License
 
-This project is for educational and personal use. Ensure compliance with all API terms of service and applicable laws regarding data collection and use.
-
-## Contributing
-
-Feel free to submit issues, feature requests, or pull requests to improve the analyzer.
-
----
-
-For questions or support, check the logs directory or enable verbose mode for detailed troubleshooting information.
+This project is for educational and personal use.

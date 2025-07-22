@@ -11,7 +11,7 @@ apis:
   rentcast_enabled: true
   rentcast_api_key: ""
   rentcast_endpoint: "https://api.rentcast.io/v1"
-  rentcast_rate_limit: 20 # RentCast hard limit: 20 requests per second per API key
+  rentcast_rate_limit: 20  # RentCast hard limit: 20 requests per second per API key
   rentcast_search_params:
     locations:
       - "San Francisco, CA"

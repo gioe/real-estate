@@ -14,7 +14,12 @@ Package Structure:
 """
 
 # Import main classes for convenience
-from .api import RentCastClient, BaseHTTPClient, HTTPClientError
+from .api import (
+    RentCastClient, BaseHTTPClient, HTTPClientError,
+    RentCastAPIError, RentCastInvalidParametersError, RentCastAuthError,
+    RentCastNoResultsError, RentCastRateLimitError, RentCastServerError,
+    RentCastTimeoutError, get_error_recommendation
+)
 from .core import (
     RealEstateAnalyzer, RealEstateDataFetcher, DatabaseManager,
     PaginationManager, APIResponse, PaginationParams, PaginatedResult,
@@ -33,6 +38,16 @@ __all__ = [
     'RentCastClient',
     'BaseHTTPClient', 
     'HTTPClientError',
+    
+    # RentCast Error Handling
+    'RentCastAPIError',
+    'RentCastInvalidParametersError',
+    'RentCastAuthError',
+    'RentCastNoResultsError',
+    'RentCastRateLimitError',
+    'RentCastServerError',
+    'RentCastTimeoutError',
+    'get_error_recommendation',
     
     # Core classes
     'RealEstateAnalyzer',

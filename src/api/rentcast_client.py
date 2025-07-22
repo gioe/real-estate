@@ -2,7 +2,7 @@
 RentCast API Client
 
 Specialized client for interacting with RentCast API endpoints.
-Handles authentication, request formatting, and response parsing.
+Handles authentication, request formatting, response parsing, and RentCast-specific errors.
 """
 
 import logging
@@ -11,6 +11,13 @@ from datetime import datetime
 import json
 
 from .http_client import BaseHTTPClient, RateLimiter, HTTPClientError
+from .rentcast_errors import (
+    RentCastAPIError, 
+    RentCastNoResultsError,
+    is_retryable_error,
+    log_error_details,
+    get_error_recommendation
+)
 from ..schemas.rentcast_schemas import Property, PropertiesResponse, parse_property_response
 
 if TYPE_CHECKING:
@@ -19,8 +26,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class RentCastClientError(HTTPClientError):
-    """Custom exception for RentCast API errors."""
+class RentCastClientError(RentCastAPIError):
+    """Custom exception for RentCast client-specific errors."""
     pass
 
 
@@ -49,14 +56,14 @@ class RentCastClient:
         }
     
     def __init__(self, api_key: str, base_url: str = "https://api.rentcast.io/v1",
-                 rate_limit: int = 100, timeout: int = 30, max_retries: int = 3):
+                 rate_limit: int = 20, timeout: int = 30, max_retries: int = 3):
         """
         Initialize RentCast client.
         
         Args:
             api_key: RentCast API key
             base_url: Base URL for RentCast API
-            rate_limit: Maximum requests per minute
+            rate_limit: Maximum requests per second (default: 20, RentCast's hard limit)
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
         """
@@ -69,8 +76,8 @@ class RentCastClient:
             'User-Agent': 'RealEstateAnalyzer/1.0'
         }
         
-        # Create rate limiter (RentCast typically limits to 100 requests per minute)
-        rate_limiter = RateLimiter(max_requests=rate_limit, time_window=60)
+        # Create rate limiter (RentCast has a hard limit of 20 requests per second)
+        rate_limiter = RateLimiter(max_requests=rate_limit, time_window=1)
         
         # Initialize base HTTP client
         self.client = BaseHTTPClient(
@@ -81,10 +88,73 @@ class RentCastClient:
             rate_limiter=rate_limiter
         )
         
-        logger.info(f"RentCast client initialized with rate limit: {rate_limit} req/min")
+        logger.info(f"RentCast client initialized with rate limit: {rate_limit} req/sec (RentCast hard limit: 20 req/sec)")
+    
+    def _make_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Make a request to RentCast API with proper error handling.
+        
+        Args:
+            endpoint: API endpoint to call
+            params: Query parameters
+            
+        Returns:
+            API response data
+            
+        Raises:
+            RentCastAPIError: For RentCast-specific errors
+            RentCastClientError: For client-specific errors
+        """
+        try:
+            response_data = self.client.get(endpoint, params=params, use_rentcast_errors=True)
+            return self._validate_response(response_data)
+        
+        except RentCastAPIError as e:
+            # Log detailed error information
+            log_error_details(e)
+            
+            # For "no results" errors, we might want to handle them gracefully
+            if isinstance(e, RentCastNoResultsError):
+                logger.info(f"No results found for endpoint {endpoint} with params {params}")
+                # Return empty result structure instead of raising
+                return self._create_empty_response(endpoint)
+            
+            # Re-raise other RentCast API errors
+            raise e
+        
+        except HTTPClientError as e:
+            logger.error(f"HTTP client error for endpoint {endpoint}: {e}")
+            raise RentCastClientError(f"Request to {endpoint} failed: {e}")
+        
+        except Exception as e:
+            logger.error(f"Unexpected error for endpoint {endpoint}: {e}")
+            raise RentCastClientError(f"Unexpected error calling {endpoint}: {e}")
+    
+    def _create_empty_response(self, endpoint: str) -> Dict[str, Any]:
+        """Create an empty response structure for endpoints that return no results."""
+        if 'properties' in endpoint:
+            return {'data': [], 'total': 0, 'page': 1, 'pageSize': 0}
+        elif 'listings' in endpoint:
+            return {'listings': [], 'total': 0, 'page': 1, 'pageSize': 0}
+        elif 'markets' in endpoint:
+            return {'markets': []}
+        else:
+            return {'data': [], 'total': 0}
     
     def _validate_response(self, response_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate RentCast API response."""
+        """
+        Validate RentCast API response and handle legacy error formats.
+        
+        Args:
+            response_data: Raw API response
+            
+        Returns:
+            Validated response data
+            
+        Raises:
+            RentCastClientError: For response validation errors
+        """
+        # Handle legacy error format (if any) that wasn't caught by HTTP error handling
         if 'error' in response_data:
             error_msg = response_data.get('error', {})
             if isinstance(error_msg, dict):
@@ -119,11 +189,18 @@ class RentCastClient:
         logger.info(f"Search type: {search_type_name}")
         
         try:
-            response_data = self.client.get(self.ENDPOINTS['properties'], params=params)
-            validated_response = self._validate_response(response_data)
-            return PropertiesResponse.from_dict(validated_response)
+            response_data = self._make_request(self.ENDPOINTS['properties'], params=params)
+            return PropertiesResponse.from_dict(response_data)
         
-        except HTTPClientError as e:
+        except RentCastAPIError as e:
+            logger.error(f"RentCast API error in structured property search: {e}")
+            if isinstance(e, RentCastNoResultsError):
+                # Return empty response for no results
+                empty_data = {'data': [], 'total': 0, 'page': 1, 'pageSize': 0}
+                return PropertiesResponse.from_dict(empty_data)
+            raise e
+        
+        except Exception as e:
             logger.error(f"Failed to search properties with structured criteria: {e}")
             raise RentCastClientError(f"Structured property search failed: {e}")
     
@@ -148,10 +225,16 @@ class RentCastClient:
         logger.info(f"Search type: {search_type_name}")
         
         try:
-            response_data = self.client.get(self.ENDPOINTS['listings_sale'], params=params)
-            return self._validate_response(response_data)
+            return self._make_request(self.ENDPOINTS['listings_sale'], params=params)
         
-        except HTTPClientError as e:
+        except RentCastAPIError as e:
+            logger.error(f"RentCast API error in structured sale listings search: {e}")
+            if isinstance(e, RentCastNoResultsError):
+                # Return empty response for no results
+                return {'listings': [], 'total': 0, 'page': 1, 'pageSize': 0}
+            raise e
+        
+        except Exception as e:
             logger.error(f"Failed to search sale listings with structured criteria: {e}")
             raise RentCastClientError(f"Structured sale listings search failed: {e}")
     
@@ -176,10 +259,16 @@ class RentCastClient:
         logger.info(f"Search type: {search_type_name}")
         
         try:
-            response_data = self.client.get(self.ENDPOINTS['listings_rental_long_term'], params=params)
-            return self._validate_response(response_data)
+            return self._make_request(self.ENDPOINTS['listings_rental_long_term'], params=params)
         
-        except HTTPClientError as e:
+        except RentCastAPIError as e:
+            logger.error(f"RentCast API error in structured rental listings search: {e}")
+            if isinstance(e, RentCastNoResultsError):
+                # Return empty response for no results
+                return {'listings': [], 'total': 0, 'page': 1, 'pageSize': 0}
+            raise e
+        
+        except Exception as e:
             logger.error(f"Failed to search rental listings with structured criteria: {e}")
             raise RentCastClientError(f"Structured rental listings search failed: {e}")
     

@@ -181,3 +181,27 @@ temp/
 .coverage.*
 *.cover
 htmlcov/
+
+# Project root hygiene - prevent temporary scripts
+/demo_*.py
+/test_*.py
+/example_*.py
+/temp_*.py
+/validate_*.py
+/*_demo.py
+/*_test.py
+/*_example.py
+/*_temp.py
+/*_validate.py
+
+# Prevent documentation files and directories in root
+/*.md
+!/README.md
+/docs/
+
+# Only allow essential files in project root
+# Allowed: main.py, setup.py, Makefile, README.md, requirements.txt, .gitignore
+# All other .py files should be in src/ or tests/
+/*.py
+!/main.py
+!/setup.py
