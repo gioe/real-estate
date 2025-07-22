@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Info Icons</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-4">
+        <h2>Info Icons Test</h2>
+        <p>This page tests if the info icons and modal explanations are working properly.</p>
+
+        <!-- Test metric tile with info icon -->
+        <div class="col-6">
+            <div class="border rounded p-2 metric-tile">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <div class="fw-bold text-primary">$520,000</div>
+                    <i class="fas fa-info-circle metric-info-icon text-muted" data-bs-toggle="modal"
+                        data-bs-target="#metricModal" data-metric-title="List Price"
+                        data-metric-explanation="&lt;strong&gt;List Price&lt;/strong&gt; is the asking price set by the seller. This is what they're currently asking for the property.&lt;br&gt;&lt;br&gt;&lt;strong&gt;Current Value:&lt;/strong&gt; $520,000&lt;br&gt;&lt;br&gt;This represents the starting point for negotiations and should be compared to the estimated market value to determine if it's fairly priced.&lt;br&gt;&lt;br&gt;&lt;strong&gt;Investment Context:&lt;/strong&gt; This is the amount you'll need to negotiate and potentially pay for the property."
+                        title="Click for explanation" style="cursor: pointer; font-size: 0.8rem;"></i>
+                </div>
+                <small class="text-muted">List Price</small>
+            </div>
+        </div>
+
+        <!-- Test Button -->
+        <button class="btn btn-primary mt-3" onclick="testExplanation()">Test Explanation Generation</button>
+        <div id="testResults" class="mt-3"></div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="metricModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Metric Explanation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="metricExplanation">
+                        <!-- Explanation content will be inserted here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Set up modal event listener
+        const metricModal = document.getElementById('metricModal');
+        metricModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const title = button.getAttribute('data-metric-title');
+            const explanation = button.getAttribute('data-metric-explanation');
+
+            const modalTitle = metricModal.querySelector('.modal-title');
+            const modalBody = metricModal.querySelector('#metricExplanation');
+
+            modalTitle.textContent = title + ' - Calculation Details';
+            modalBody.innerHTML = explanation;
+        });
+
+        // Test explanation generation
+        function testExplanation() {
+            const testDeal = {
+                asking_price: 520000,
+                estimated_value: 510000,
+                overall_score: 87.3,
+                value_discount_pct: -1.9
+            };
+
+            const explanation = getMetricExplanation('list-price', testDeal);
+            document.getElementById('testResults').innerHTML = `
+                <div class="alert alert-info">
+                    <h5>Generated Explanation:</h5>
+                    ${explanation}
+                </div>
+            `;
+        }
+
+        // Copy the explanation function from deals.js
+        function getMetricExplanation(metricType, deal) {
+            const price = deal.asking_price || deal.price || deal.purchase_price || 0;
+            const estValue = deal.estimated_value || 0;
+            const valueDiscount = deal.value_discount_pct || 0;
+
+            switch (metricType) {
+                case 'list-price':
+                    return `<strong>List Price</strong> is the asking price set by the seller. This is what they're currently asking for the property.<br><br>
+                            <strong>Current Value:</strong> $${price.toLocaleString()}<br><br>
+                            This represents the starting point for negotiations and should be compared to the estimated market value to determine if it's fairly priced.<br><br>
+                            <strong>Investment Context:</strong> This is the amount you'll need to negotiate and potentially pay for the property.`;
+
+                case 'estimated-value':
+                    const valueDiff = valueDiscount || (price && estValue ? ((estValue - price) / price * 100) : 0);
+                    return `<strong>Estimated Value</strong> is the AI-powered market valuation based on comparable properties, market trends, and property characteristics.<br><br>
+                            <strong>Calculation Method:</strong> Automated Valuation Model (AVM)<br>
+                            <strong>Estimated Value:</strong> $${estValue.toLocaleString()}<br>
+                            <strong>List Price:</strong> $${price.toLocaleString()}<br>
+                            <strong>Value Difference:</strong> ${valueDiff > 0 ? '+' : ''}${valueDiff.toFixed(1)}%<br><br>
+                            ${valueDiff > 5 ? '✅ <strong>Great Value:</strong> Property appears significantly undervalued' : 
+                              valueDiff > 0 ? '⚖️ <strong>Fair Value:</strong> Property is reasonably priced' :
+                              valueDiff < -5 ? '⚠️ <strong>Premium Pricing:</strong> Property appears overvalued' :
+                              '📊 <strong>Market Value:</strong> Property is priced at market value'}<br><br>
+                            <strong>Investment Insight:</strong> ${Math.abs(valueDiff)}% ${valueDiff > 0 ? 'below' : 'above'} estimated market value.`;
+
+                default:
+                    return 'Test explanation for metric: ' + metricType;
+            }
+        }
+    </script>
+</body>
+
+</html>

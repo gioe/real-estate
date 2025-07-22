@@ -116,6 +116,121 @@ class DatabaseManager:
                     )
                 ''')
                 
+                # Create AVM (Automated Valuation Model) data table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS avm_valuations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        property_id TEXT NOT NULL,
+                        address TEXT NOT NULL,
+                        estimated_value REAL,
+                        estimated_rent REAL,
+                        confidence_score REAL,
+                        value_range_low REAL,
+                        value_range_high REAL,
+                        rent_range_low REAL,
+                        rent_range_high REAL,
+                        comparables_count INTEGER,
+                        cap_rate REAL,
+                        cash_flow REAL,
+                        roi_percentage REAL,
+                        raw_avm_data TEXT,
+                        fetched_at DATETIME NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (property_id) REFERENCES properties(property_id)
+                    )
+                ''')
+                
+                # Create market statistics table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS market_statistics (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        zip_code TEXT NOT NULL,
+                        city TEXT,
+                        state TEXT,
+                        property_type TEXT,
+                        bedrooms INTEGER,
+                        avg_sale_price REAL,
+                        median_sale_price REAL,
+                        avg_rent_price REAL,
+                        median_rent_price REAL,
+                        avg_price_per_sqft REAL,
+                        avg_rent_per_sqft REAL,
+                        inventory_count INTEGER,
+                        avg_days_on_market INTEGER,
+                        rent_yield_percentage REAL,
+                        price_trend_3m TEXT,
+                        price_trend_6m TEXT,
+                        price_trend_12m TEXT,
+                        raw_market_data TEXT,
+                        analysis_month TEXT NOT NULL,
+                        fetched_at DATETIME NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(zip_code, property_type, bedrooms, analysis_month)
+                    )
+                ''')
+                
+                # Create property comparables table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS property_comparables (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_property_id TEXT NOT NULL,
+                        comparable_property_id TEXT,
+                        comparable_address TEXT,
+                        sale_price REAL,
+                        sale_date TEXT,
+                        distance_miles REAL,
+                        bedrooms INTEGER,
+                        bathrooms REAL,
+                        square_feet INTEGER,
+                        price_per_sqft REAL,
+                        days_on_market INTEGER,
+                        similarity_score REAL,
+                        raw_comparable_data TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (source_property_id) REFERENCES properties(property_id)
+                    )
+                ''')
+                
+                # Create investment analysis table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS investment_analysis (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        property_id TEXT NOT NULL,
+                        purchase_price REAL NOT NULL,
+                        estimated_rent REAL,
+                        estimated_expenses REAL,
+                        cap_rate REAL,
+                        cash_on_cash_return REAL,
+                        gross_yield REAL,
+                        net_yield REAL,
+                        monthly_cash_flow REAL,
+                        annual_cash_flow REAL,
+                        break_even_ratio REAL,
+                        investment_score REAL,
+                        risk_level TEXT,
+                        analysis_notes TEXT,
+                        analysis_date DATE NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (property_id) REFERENCES properties(property_id)
+                    )
+                ''')
+                
+                # Create price history tracking table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS price_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        property_id TEXT NOT NULL,
+                        price REAL NOT NULL,
+                        price_type TEXT NOT NULL, -- 'list', 'sale', 'estimated'
+                        date_recorded DATE NOT NULL,
+                        source TEXT NOT NULL,
+                        notes TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (property_id) REFERENCES properties(property_id)
+                    )
+                ''')
+                
                 # Create notifications_log table
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS notifications_log (
@@ -148,6 +263,81 @@ class DatabaseManager:
                 cursor.execute('''
                     CREATE INDEX IF NOT EXISTS idx_properties_fetched_at 
                     ON properties(fetched_at)
+                ''')
+                
+                # AVM valuations indexes
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_avm_property_id 
+                    ON avm_valuations(property_id)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_avm_estimated_value 
+                    ON avm_valuations(estimated_value)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_avm_fetched_at 
+                    ON avm_valuations(fetched_at)
+                ''')
+                
+                # Market statistics indexes
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_market_zip_code 
+                    ON market_statistics(zip_code)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_market_analysis_month 
+                    ON market_statistics(analysis_month)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_market_property_type 
+                    ON market_statistics(property_type)
+                ''')
+                
+                # Comparables indexes
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_comparables_source_property 
+                    ON property_comparables(source_property_id)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_comparables_similarity 
+                    ON property_comparables(similarity_score)
+                ''')
+                
+                # Investment analysis indexes
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_investment_property_id 
+                    ON investment_analysis(property_id)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_investment_score 
+                    ON investment_analysis(investment_score)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_investment_cap_rate 
+                    ON investment_analysis(cap_rate)
+                ''')
+                
+                # Price history indexes
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_price_history_property_id 
+                    ON price_history(property_id)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_price_history_date 
+                    ON price_history(date_recorded)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_price_history_type 
+                    ON price_history(price_type)
                 ''')
                 
                 conn.commit()
@@ -606,6 +796,266 @@ class DatabaseManager:
             logger.error(f"Error saving analysis results: {str(e)}")
             return False
     
+    def save_avm_valuation(self, property_id: str, address: str, avm_data: Dict[str, Any]) -> bool:
+        """
+        Save AVM (Automated Valuation Model) data for a property.
+        
+        Args:
+            property_id: Unique property identifier
+            address: Property address
+            avm_data: AVM response data
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Extract key AVM metrics
+                estimated_value = avm_data.get('value')
+                estimated_rent = avm_data.get('rent', {}).get('estimate') if avm_data.get('rent') else None
+                confidence = avm_data.get('confidence')
+                
+                # Value ranges
+                value_range = avm_data.get('valueRange', {})
+                value_low = value_range.get('low')
+                value_high = value_range.get('high')
+                
+                # Rent ranges
+                rent_data = avm_data.get('rent', {})
+                rent_range = rent_data.get('rentRange', {})
+                rent_low = rent_range.get('low')
+                rent_high = rent_range.get('high')
+                
+                # Comparables count
+                comparables_count = len(avm_data.get('comparables', []))
+                
+                # Calculate investment metrics if possible
+                cap_rate = None
+                cash_flow = None
+                roi_percentage = None
+                
+                if estimated_value and estimated_rent:
+                    annual_rent = estimated_rent * 12
+                    cap_rate = (annual_rent / estimated_value) * 100
+                    # Estimate expenses as 30% of rent (industry standard)
+                    estimated_expenses = annual_rent * 0.3
+                    cash_flow = annual_rent - estimated_expenses
+                    roi_percentage = (cash_flow / estimated_value) * 100
+                
+                cursor.execute('''
+                    INSERT OR REPLACE INTO avm_valuations 
+                    (property_id, address, estimated_value, estimated_rent, confidence_score,
+                     value_range_low, value_range_high, rent_range_low, rent_range_high,
+                     comparables_count, cap_rate, cash_flow, roi_percentage, raw_avm_data,
+                     fetched_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    property_id, address, estimated_value, estimated_rent, confidence,
+                    value_low, value_high, rent_low, rent_high, comparables_count,
+                    cap_rate, cash_flow, roi_percentage, json.dumps(avm_data),
+                    datetime.now().isoformat(), datetime.now().isoformat()
+                ))
+                
+                conn.commit()
+                logger.info(f"Saved AVM valuation for property {property_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving AVM valuation: {str(e)}")
+            return False
+    
+    def save_market_statistics(self, zip_code: str, market_data: Dict[str, Any]) -> bool:
+        """
+        Save market statistics for a specific area.
+        
+        Args:
+            zip_code: ZIP code for the market data
+            market_data: Market statistics data
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Extract market data by property type
+                for property_type, type_data in market_data.get('propertyTypes', {}).items():
+                    for bedroom_count, bedroom_data in type_data.get('bedrooms', {}).items():
+                        sale_data = bedroom_data.get('saleData', {})
+                        rental_data = bedroom_data.get('rentalData', {})
+                        
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO market_statistics 
+                            (zip_code, city, state, property_type, bedrooms,
+                             avg_sale_price, median_sale_price, avg_rent_price, median_rent_price,
+                             avg_price_per_sqft, avg_rent_per_sqft, inventory_count, 
+                             avg_days_on_market, rent_yield_percentage, 
+                             price_trend_3m, price_trend_6m, price_trend_12m,
+                             raw_market_data, analysis_month, fetched_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            zip_code,
+                            market_data.get('city'),
+                            market_data.get('state'),
+                            property_type,
+                            int(bedroom_count) if bedroom_count.isdigit() else None,
+                            sale_data.get('averagePrice'),
+                            sale_data.get('medianPrice'),
+                            rental_data.get('averagePrice'),
+                            rental_data.get('medianPrice'),
+                            sale_data.get('averagePricePerSquareFoot'),
+                            rental_data.get('averagePricePerSquareFoot'),
+                            sale_data.get('inventoryCount'),
+                            sale_data.get('averageDaysOnMarket'),
+                            # Calculate rent yield if we have both sale and rental prices
+                            ((rental_data.get('averagePrice', 0) * 12) / sale_data.get('averagePrice', 1) * 100) 
+                            if sale_data.get('averagePrice') else None,
+                            # Price trends (would need historical data)
+                            None, None, None,
+                            json.dumps(market_data),
+                            datetime.now().strftime('%Y-%m'),
+                            datetime.now().isoformat()
+                        ))
+                
+                conn.commit()
+                logger.info(f"Saved market statistics for ZIP {zip_code}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving market statistics: {str(e)}")
+            return False
+    
+    def save_property_comparables(self, source_property_id: str, comparables: List[Dict[str, Any]]) -> bool:
+        """
+        Save comparable properties data.
+        
+        Args:
+            source_property_id: ID of the source property
+            comparables: List of comparable properties
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                for comp in comparables:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO property_comparables 
+                        (source_property_id, comparable_property_id, comparable_address,
+                         sale_price, sale_date, distance_miles, bedrooms, bathrooms,
+                         square_feet, price_per_sqft, days_on_market, similarity_score,
+                         raw_comparable_data)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        source_property_id,
+                        comp.get('id'),
+                        comp.get('address'),
+                        comp.get('price'),
+                        comp.get('saleDate'),
+                        comp.get('distance'),
+                        comp.get('bedrooms'),
+                        comp.get('bathrooms'),
+                        comp.get('squareFootage'),
+                        comp.get('pricePerSquareFoot'),
+                        comp.get('daysOnMarket'),
+                        comp.get('similarityScore', 0.8),  # Default similarity
+                        json.dumps(comp)
+                    ))
+                
+                conn.commit()
+                logger.info(f"Saved {len(comparables)} comparables for property {source_property_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving property comparables: {str(e)}")
+            return False
+    
+    def save_investment_analysis(self, property_id: str, investment_data: Dict[str, Any]) -> bool:
+        """
+        Save investment analysis for a property.
+        
+        Args:
+            property_id: Unique property identifier
+            investment_data: Investment analysis results
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT OR REPLACE INTO investment_analysis 
+                    (property_id, purchase_price, estimated_rent, estimated_expenses,
+                     cap_rate, cash_on_cash_return, gross_yield, net_yield,
+                     monthly_cash_flow, annual_cash_flow, break_even_ratio,
+                     investment_score, risk_level, analysis_notes, analysis_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    property_id,
+                    investment_data.get('purchase_price'),
+                    investment_data.get('estimated_rent'),
+                    investment_data.get('estimated_expenses'),
+                    investment_data.get('cap_rate'),
+                    investment_data.get('cash_on_cash_return'),
+                    investment_data.get('gross_yield'),
+                    investment_data.get('net_yield'),
+                    investment_data.get('monthly_cash_flow'),
+                    investment_data.get('annual_cash_flow'),
+                    investment_data.get('break_even_ratio'),
+                    investment_data.get('investment_score'),
+                    investment_data.get('risk_level'),
+                    investment_data.get('analysis_notes'),
+                    datetime.now().date().isoformat()
+                ))
+                
+                conn.commit()
+                logger.info(f"Saved investment analysis for property {property_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving investment analysis: {str(e)}")
+            return False
+    
+    def save_price_history(self, property_id: str, price: float, price_type: str, 
+                          date_recorded: str, source: str, notes: str = None) -> bool:
+        """
+        Save price history entry for a property.
+        
+        Args:
+            property_id: Unique property identifier
+            price: Price value
+            price_type: Type of price ('list', 'sale', 'estimated')
+            date_recorded: Date when price was recorded
+            source: Source of the price data
+            notes: Optional notes about the price
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT INTO price_history 
+                    (property_id, price, price_type, date_recorded, source, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (property_id, price, price_type, date_recorded, source, notes))
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving price history: {str(e)}")
+            return False
+    
     def log_notification(self, notification_type: str, recipient: str, 
                         subject: str, status: str, property_count: int = 0) -> bool:
         """
@@ -639,40 +1089,76 @@ class DatabaseManager:
             return False
     
     def get_database_stats(self) -> Dict[str, Any]:
-        """Get database statistics."""
+        """Get comprehensive database statistics."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
+                stats = {}
+                
                 # Get table counts
-                cursor.execute("SELECT COUNT(*) FROM properties")
-                property_count = cursor.fetchone()[0]
+                tables = [
+                    'properties', 'analysis_results', 'notifications_log',
+                    'avm_valuations', 'market_statistics', 'property_comparables',
+                    'investment_analysis', 'price_history', 'deal_analyses', 'deal_insights'
+                ]
                 
-                cursor.execute("SELECT COUNT(*) FROM analysis_results")
-                analysis_count = cursor.fetchone()[0]
+                for table in tables:
+                    try:
+                        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                        count = cursor.fetchone()[0]
+                        stats[f'{table}_count'] = count
+                    except sqlite3.OperationalError:
+                        # Table doesn't exist
+                        stats[f'{table}_count'] = 0
                 
-                cursor.execute("SELECT COUNT(*) FROM notifications_log")
-                notification_count = cursor.fetchone()[0]
-                
-                # Get date ranges
-                cursor.execute("SELECT MIN(created_at), MAX(created_at) FROM properties")
-                date_range = cursor.fetchone()
+                # Get date ranges for main tables
+                for table in ['properties', 'avm_valuations', 'market_statistics']:
+                    try:
+                        date_column = 'created_at' if table == 'properties' else 'fetched_at'
+                        cursor.execute(f"SELECT MIN({date_column}), MAX({date_column}) FROM {table}")
+                        date_range = cursor.fetchone()
+                        stats[f'{table}_date_range'] = {
+                            'earliest': date_range[0],
+                            'latest': date_range[1]
+                        }
+                    except sqlite3.OperationalError:
+                        stats[f'{table}_date_range'] = {'earliest': None, 'latest': None}
                 
                 # Get unique sources
-                cursor.execute("SELECT DISTINCT source FROM properties")
-                sources = [row[0] for row in cursor.fetchall()]
+                try:
+                    cursor.execute("SELECT DISTINCT source FROM properties")
+                    sources = [row[0] for row in cursor.fetchall()]
+                    stats['data_sources'] = sources
+                except sqlite3.OperationalError:
+                    stats['data_sources'] = []
                 
-                return {
-                    'property_count': property_count,
-                    'analysis_count': analysis_count,
-                    'notification_count': notification_count,
-                    'date_range': {
-                        'earliest': date_range[0],
-                        'latest': date_range[1]
-                    },
-                    'sources': sources,
-                    'database_size_mb': self.db_path.stat().st_size / (1024 * 1024) if self.db_path.exists() else 0
-                }
+                # Get unique ZIP codes from market data
+                try:
+                    cursor.execute("SELECT DISTINCT zip_code FROM market_statistics")
+                    zip_codes = [row[0] for row in cursor.fetchall()]
+                    stats['market_zip_codes'] = zip_codes
+                except sqlite3.OperationalError:
+                    stats['market_zip_codes'] = []
+                
+                # Get top investment properties
+                try:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM investment_analysis 
+                        WHERE cap_rate >= 8.0 AND monthly_cash_flow >= 200
+                    ''')
+                    good_investments = cursor.fetchone()[0]
+                    stats['good_investment_count'] = good_investments
+                except sqlite3.OperationalError:
+                    stats['good_investment_count'] = 0
+                
+                # Database file size
+                stats['database_size_mb'] = (
+                    self.db_path.stat().st_size / (1024 * 1024) 
+                    if self.db_path.exists() else 0
+                )
+                
+                return stats
                 
         except Exception as e:
             logger.error(f"Error getting database stats: {str(e)}")
@@ -716,6 +1202,230 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error cleaning up old data: {str(e)}")
             return 0
+    
+    # New retrieval methods for analysis data
+    
+    def get_avm_valuation(self, property_id: str) -> Optional[Dict[str, Any]]:
+        """Get AVM valuation data for a specific property."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT * FROM avm_valuations 
+                    WHERE property_id = ? 
+                    ORDER BY fetched_at DESC LIMIT 1
+                ''', (property_id,))
+                
+                row = cursor.fetchone()
+                if row:
+                    result = dict(row)
+                    # Parse raw_avm_data if it exists
+                    if result.get('raw_avm_data'):
+                        try:
+                            result['raw_avm_data'] = json.loads(result['raw_avm_data'])
+                        except json.JSONDecodeError:
+                            pass
+                    return result
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting AVM valuation: {str(e)}")
+            return None
+    
+    def get_market_statistics(self, zip_code: str, property_type: str = None, 
+                             bedrooms: int = None) -> List[Dict[str, Any]]:
+        """Get market statistics for a specific area."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                query = "SELECT * FROM market_statistics WHERE zip_code = ?"
+                params = [zip_code]
+                
+                if property_type:
+                    query += " AND property_type = ?"
+                    params.append(property_type)
+                
+                if bedrooms is not None:
+                    query += " AND bedrooms = ?"
+                    params.append(bedrooms)
+                
+                query += " ORDER BY analysis_month DESC"
+                
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                
+                results = []
+                for row in rows:
+                    result = dict(row)
+                    # Parse raw_market_data if it exists
+                    if result.get('raw_market_data'):
+                        try:
+                            result['raw_market_data'] = json.loads(result['raw_market_data'])
+                        except json.JSONDecodeError:
+                            pass
+                    results.append(result)
+                
+                return results
+                
+        except Exception as e:
+            logger.error(f"Error getting market statistics: {str(e)}")
+            return []
+    
+    def get_property_comparables(self, property_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get comparable properties for a specific property."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT * FROM property_comparables 
+                    WHERE source_property_id = ? 
+                    ORDER BY similarity_score DESC LIMIT ?
+                ''', (property_id, limit))
+                
+                rows = cursor.fetchall()
+                
+                results = []
+                for row in rows:
+                    result = dict(row)
+                    # Parse raw_comparable_data if it exists
+                    if result.get('raw_comparable_data'):
+                        try:
+                            result['raw_comparable_data'] = json.loads(result['raw_comparable_data'])
+                        except json.JSONDecodeError:
+                            pass
+                    results.append(result)
+                
+                return results
+                
+        except Exception as e:
+            logger.error(f"Error getting property comparables: {str(e)}")
+            return []
+    
+    def get_investment_analysis(self, property_id: str) -> Optional[Dict[str, Any]]:
+        """Get investment analysis for a specific property."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT * FROM investment_analysis 
+                    WHERE property_id = ? 
+                    ORDER BY analysis_date DESC LIMIT 1
+                ''', (property_id,))
+                
+                row = cursor.fetchone()
+                return dict(row) if row else None
+                
+        except Exception as e:
+            logger.error(f"Error getting investment analysis: {str(e)}")
+            return None
+    
+    def get_price_history(self, property_id: str) -> List[Dict[str, Any]]:
+        """Get price history for a specific property."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT * FROM price_history 
+                    WHERE property_id = ? 
+                    ORDER BY date_recorded DESC
+                ''', (property_id,))
+                
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+                
+        except Exception as e:
+            logger.error(f"Error getting price history: {str(e)}")
+            return []
+    
+    def get_top_investment_opportunities(self, min_cap_rate: float = 8.0, 
+                                       min_cash_flow: float = 200, 
+                                       limit: int = 20) -> List[Dict[str, Any]]:
+        """Get top investment opportunities based on financial metrics."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT ia.*, p.address, p.city, p.state, p.price, p.bedrooms, p.bathrooms,
+                           av.estimated_value, av.confidence_score
+                    FROM investment_analysis ia
+                    JOIN properties p ON ia.property_id = p.property_id
+                    LEFT JOIN avm_valuations av ON ia.property_id = av.property_id
+                    WHERE ia.cap_rate >= ? AND ia.monthly_cash_flow >= ?
+                    ORDER BY ia.investment_score DESC, ia.cap_rate DESC
+                    LIMIT ?
+                ''', (min_cap_rate, min_cash_flow, limit))
+                
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+                
+        except Exception as e:
+            logger.error(f"Error getting investment opportunities: {str(e)}")
+            return []
+    
+    def get_market_trends(self, zip_code: str, months_back: int = 12) -> Dict[str, Any]:
+        """Get market trends for a specific area over time."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Get historical data
+                cursor.execute('''
+                    SELECT analysis_month, AVG(avg_sale_price) as avg_price,
+                           AVG(avg_rent_price) as avg_rent,
+                           AVG(avg_days_on_market) as avg_dom,
+                           COUNT(*) as data_points
+                    FROM market_statistics 
+                    WHERE zip_code = ? AND analysis_month >= date('now', '-{} months')
+                    GROUP BY analysis_month
+                    ORDER BY analysis_month DESC
+                '''.format(months_back), (zip_code,))
+                
+                rows = cursor.fetchall()
+                historical_data = [dict(row) for row in rows]
+                
+                # Calculate trends
+                trends = {
+                    'zip_code': zip_code,
+                    'historical_data': historical_data,
+                    'price_trend': None,
+                    'rent_trend': None,
+                    'dom_trend': None
+                }
+                
+                if len(historical_data) >= 2:
+                    latest = historical_data[0]
+                    previous = historical_data[-1]
+                    
+                    if latest['avg_price'] and previous['avg_price']:
+                        price_change = ((latest['avg_price'] - previous['avg_price']) / previous['avg_price']) * 100
+                        trends['price_trend'] = round(price_change, 2)
+                    
+                    if latest['avg_rent'] and previous['avg_rent']:
+                        rent_change = ((latest['avg_rent'] - previous['avg_rent']) / previous['avg_rent']) * 100
+                        trends['rent_trend'] = round(rent_change, 2)
+                    
+                    if latest['avg_dom'] and previous['avg_dom']:
+                        dom_change = ((latest['avg_dom'] - previous['avg_dom']) / previous['avg_dom']) * 100
+                        trends['dom_trend'] = round(dom_change, 2)
+                
+                return trends
+                
+        except Exception as e:
+            logger.error(f"Error getting market trends: {str(e)}")
+            return {}
     
     def _prepare_property_data(self, prop: Dict[str, Any]) -> Tuple:
         """Prepare property data for database insertion."""

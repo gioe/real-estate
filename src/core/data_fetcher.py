@@ -364,11 +364,23 @@ class RealEstateDataFetcher:
                                 logger.info(f"Searching RentCast: {location}, {prop_type}")
                                 response = client.search_properties(**search_kwargs)
                                 
-                                # Process response data
-                                property_data = response.get('properties', []) if isinstance(response, dict) else response
-                                if isinstance(property_data, list):
+                                # Process response data - handle PropertiesResponse object
+                                property_data = []
+                                if hasattr(response, 'properties'):
+                                    # PropertiesResponse object
+                                    property_data = response.properties
+                                elif isinstance(response, dict) and 'properties' in response:
+                                    # Dict response
+                                    property_data = response['properties']
+                                elif isinstance(response, list):
+                                    # Direct list
+                                    property_data = response
+                                
+                                if property_data:
                                     for prop in property_data:
-                                        normalized_prop = self._normalize_rentcast_property(prop)
+                                        # Convert Property object to dict if needed
+                                        prop_dict = prop.to_dict() if hasattr(prop, 'to_dict') else prop
+                                        normalized_prop = self._normalize_rentcast_property(prop_dict)
                                         properties.append(normalized_prop)
                                         
                             except RentCastClientError as e:
@@ -380,11 +392,23 @@ class RealEstateDataFetcher:
                             logger.info(f"Searching RentCast: {location}")
                             response = client.search_properties(**search_kwargs)
                             
-                            # Process response data
-                            property_data = response.get('properties', []) if isinstance(response, dict) else response
-                            if isinstance(property_data, list):
+                            # Process response data - handle PropertiesResponse object
+                            property_data = []
+                            if hasattr(response, 'properties'):
+                                # PropertiesResponse object
+                                property_data = response.properties
+                            elif isinstance(response, dict) and 'properties' in response:
+                                # Dict response
+                                property_data = response['properties']
+                            elif isinstance(response, list):
+                                # Direct list
+                                property_data = response
+                            
+                            if property_data:
                                 for prop in property_data:
-                                    normalized_prop = self._normalize_rentcast_property(prop)
+                                    # Convert Property object to dict if needed
+                                    prop_dict = prop.to_dict() if hasattr(prop, 'to_dict') else prop
+                                    normalized_prop = self._normalize_rentcast_property(prop_dict)
                                     properties.append(normalized_prop)
                                     
                         except RentCastClientError as e:

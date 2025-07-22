@@ -1,0 +1,32 @@
+# Zip Codes Configuration for Real Estate Data Collection
+# This file contains the list of zip codes to process through the pipeline
+
+zip_codes:
+  - "10804" # Westchester County, NY (New Rochelle area)
+
+# Configuration for zip code processing
+zip_code_processing:
+  # How many properties to fetch per zip code
+  properties_per_zip: 100
+
+  # Whether to fetch sales listings
+  fetch_sales: true
+
+  # Whether to fetch rental listings
+  fetch_rentals: true
+
+  # Delay between zip code processing (seconds)
+  delay_between_zips: 2
+
+  # Property types to search for
+  property_types:
+    - "Single Family"
+    - "Condo"
+    - "Townhouse"
+
+  # Additional filters
+  filters:
+    min_beds: 1
+    max_beds: 10
+    min_baths: 1
+    max_price: 10000000 # 10 million max

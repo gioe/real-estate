@@ -17,6 +17,7 @@ from pathlib import Path
 
 from src.api.rentcast_client import RentCastClient
 from src.config.config_manager import ConfigManager
+from src.core.database import DatabaseManager
 from src.schemas.rentcast_schemas import (
     Property, PropertiesResponse, PropertyListing, ListingsResponse,
     AVMValueResponse, AVMRentResponse, MarketStatistics
@@ -36,11 +37,12 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key-change-this
 # Global variables for configuration and client
 config_manager = None
 rentcast_client = None
+database_manager = None
 
 
 def init_app():
     """Initialize the application with configuration and API client."""
-    global config_manager, rentcast_client
+    global config_manager, rentcast_client, database_manager
     
     try:
         # Load configuration
@@ -54,6 +56,10 @@ def init_app():
             base_url=api_config.get('rentcast_endpoint', 'https://api.rentcast.io/v1'),
             rate_limit=api_config.get('rentcast_rate_limit', 20)
         )
+        
+        # Initialize Database Manager
+        db_config = config_manager.get_database_config()
+        database_manager = DatabaseManager(db_config)
         
         logger.info("Flask app initialized successfully")
         
@@ -74,6 +80,157 @@ def safe_convert_to_dict(obj) -> Dict[str, Any]:
         return {k: safe_convert_to_dict(v) for k, v in obj.items()}
     else:
         return obj
+
+
+def generate_agent_description(deal: Dict[str, Any]) -> str:
+    """
+    Generate a human-readable description from a real estate agent's perspective.
+    
+    Args:
+        deal: Dictionary containing deal data
+        
+    Returns:
+        Human-readable description of the investment opportunity
+    """
+    try:
+        # Extract key metrics
+        score = deal.get('overall_score', deal.get('investment_score', 0))
+        cap_rate = deal.get('cap_rate', 0)
+        cash_flow = deal.get('monthly_cash_flow', 0)
+        confidence = deal.get('confidence', deal.get('confidence_score', 0))
+        
+        # Property details
+        property_type = deal.get('property_type', 'Property')
+        bedrooms = deal.get('bedrooms', 0)
+        bathrooms = deal.get('bathrooms', 0)
+        sqft = deal.get('square_footage', deal.get('square_feet', 0))
+        
+        # Financial details
+        asking_price = deal.get('asking_price', deal.get('price', deal.get('purchase_price', 0)))
+        estimated_value = deal.get('estimated_value', 0)
+        estimated_rent = deal.get('estimated_rent', 0)
+        deal_type = deal.get('deal_type', deal.get('source', 'investment'))
+        
+        # Start building description
+        description_parts = []
+        
+        # Property overview
+        if bedrooms and bathrooms:
+            property_desc = f"{bedrooms}BR/{bathrooms}BA {property_type.lower()}"
+        else:
+            property_desc = property_type
+            
+        if sqft:
+            property_desc += f" ({sqft:,} sqft)"
+            
+        # Score-based opening
+        if score >= 90:
+            description_parts.append(f"🌟 **EXCEPTIONAL OPPORTUNITY** - This {property_desc} scores {score:.1f}/100")
+        elif score >= 85:
+            description_parts.append(f"⭐ **EXCELLENT DEAL** - This {property_desc} scores {score:.1f}/100")
+        elif score >= 80:
+            description_parts.append(f"✅ **STRONG INVESTMENT** - This {property_desc} scores {score:.1f}/100")
+        elif score >= 75:
+            description_parts.append(f"👍 **SOLID OPPORTUNITY** - This {property_desc} scores {score:.1f}/100")
+        else:
+            description_parts.append(f"📊 **INVESTMENT PROSPECT** - This {property_desc} scores {score:.1f}/100")
+            
+        # Financial analysis
+        financial_highlights = []
+        
+        if cap_rate >= 10:
+            financial_highlights.append(f"outstanding {cap_rate:.1f}% cap rate")
+        elif cap_rate >= 8:
+            financial_highlights.append(f"strong {cap_rate:.1f}% cap rate")
+        elif cap_rate >= 6:
+            financial_highlights.append(f"solid {cap_rate:.1f}% cap rate")
+        elif cap_rate > 0:
+            financial_highlights.append(f"{cap_rate:.1f}% cap rate")
+            
+        if cash_flow >= 1000:
+            financial_highlights.append(f"excellent ${cash_flow:,.0f}/month cash flow")
+        elif cash_flow >= 500:
+            financial_highlights.append(f"strong ${cash_flow:,.0f}/month cash flow")
+        elif cash_flow >= 200:
+            financial_highlights.append(f"positive ${cash_flow:,.0f}/month cash flow")
+        elif cash_flow > 0:
+            financial_highlights.append(f"${cash_flow:,.0f}/month cash flow")
+        elif cash_flow < 0:
+            financial_highlights.append(f"${abs(cash_flow):,.0f}/month negative cash flow")
+            
+        if financial_highlights:
+            description_parts.append(f"Features {' and '.join(financial_highlights)}.")
+            
+        # Value analysis
+        if asking_price and estimated_value:
+            value_diff_pct = ((estimated_value - asking_price) / asking_price) * 100
+            if value_diff_pct >= 10:
+                description_parts.append(f"💎 **UNDERVALUED** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
+            elif value_diff_pct >= 5:
+                description_parts.append(f"💰 **GOOD VALUE** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
+            elif value_diff_pct >= 0:
+                description_parts.append(f"✅ **FAIR VALUE** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
+            else:
+                description_parts.append(f"⚠️ **PREMIUM PRICING** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
+        elif asking_price:
+            description_parts.append(f"Listed at ${asking_price:,}")
+            
+        # Rental potential
+        if estimated_rent and asking_price:
+            monthly_yield = (estimated_rent / asking_price) * 100
+            if monthly_yield >= 1.5:
+                description_parts.append(f"🏠 **EXCELLENT RENTAL YIELD** - Estimated rent of ${estimated_rent:,}/month ({monthly_yield:.2f}% monthly yield)")
+            elif monthly_yield >= 1.0:
+                description_parts.append(f"🏠 **STRONG RENTAL POTENTIAL** - Estimated rent of ${estimated_rent:,}/month ({monthly_yield:.2f}% monthly yield)")
+            elif monthly_yield >= 0.8:
+                description_parts.append(f"🏠 **DECENT RENTAL INCOME** - Estimated rent of ${estimated_rent:,}/month ({monthly_yield:.2f}% monthly yield)")
+            elif estimated_rent:
+                description_parts.append(f"🏠 **RENTAL POTENTIAL** - Estimated rent of ${estimated_rent:,}/month")
+                
+        # Investment strategy
+        strategy_notes = []
+        if deal_type == 'flip':
+            strategy_notes.append("🔨 **FLIP CANDIDATE** - Ideal for renovation and resale")
+        elif deal_type == 'buy_and_hold':
+            strategy_notes.append("📈 **BUY & HOLD** - Perfect for long-term rental income")
+        elif deal_type == 'luxury_hold':
+            strategy_notes.append("💎 **LUXURY RENTAL** - High-end investment property")
+            
+        if cap_rate >= 8 and cash_flow >= 500:
+            strategy_notes.append("💰 **CASH COW** - Strong immediate returns")
+        elif score >= 85:
+            strategy_notes.append("⭐ **PORTFOLIO BUILDER** - Excellent addition to any investment portfolio")
+            
+        if strategy_notes:
+            description_parts.append(" ".join(strategy_notes))
+            
+        # Confidence and risk assessment
+        if confidence >= 0.9:
+            description_parts.append("🎯 **HIGH CONFIDENCE** - Very reliable data analysis")
+        elif confidence >= 0.8:
+            description_parts.append("✅ **RELIABLE DATA** - Good confidence in projections")
+        elif confidence >= 0.7:
+            description_parts.append("📊 **MODERATE CONFIDENCE** - Decent data reliability")
+        elif confidence > 0:
+            description_parts.append("⚠️ **LIMITED DATA** - Lower confidence in projections")
+            
+        # Final recommendation
+        if score >= 90 and cap_rate >= 8:
+            description_parts.append("🚀 **AGENT RECOMMENDATION: IMMEDIATE ACTION** - This is a rare find that won't last long!")
+        elif score >= 85:
+            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: HIGHLY RECOMMENDED** - Strong investment opportunity")
+        elif score >= 80:
+            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: RECOMMENDED** - Solid investment choice")
+        elif score >= 75:
+            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: CONSIDER** - Worth further analysis")
+        else:
+            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: PROCEED WITH CAUTION** - Requires careful due diligence")
+            
+        return " ".join(description_parts)
+        
+    except Exception as e:
+        logger.warning(f"Error generating agent description: {e}")
+        return "Investment opportunity with detailed analysis available. Contact agent for more information."
 
 
 @app.route('/')
@@ -501,6 +658,164 @@ def listing_details(listing_type, listing_id):
     except RentCastAPIError as e:
         flash(f"Error loading listing details: {e}", 'error')
         return redirect(url_for('listings_search'))
+
+
+@app.route('/deals')
+def deals_search():
+    """Deals search page."""
+    return render_template('deals_search.html')
+
+
+@app.route('/api/deals/search', methods=['POST'])
+def search_deals():
+    """API endpoint for searching deals by zip code."""
+    try:
+        data = request.get_json()
+        
+        # Extract search parameters
+        zip_code = data.get('zip_code')
+        min_score = float(data.get('min_score', 70.0))
+        min_cap_rate = float(data.get('min_cap_rate', 0.0))
+        min_cash_flow = float(data.get('min_cash_flow', 0.0))
+        limit = int(data.get('limit', 20))
+        
+        deals = []
+        
+        if not database_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Database not initialized'
+            }), 500
+        
+        # Get best deals from deal_insights table
+        if zip_code:
+            best_deals = database_manager.get_best_deals(
+                zip_code=zip_code,
+                min_score=min_score,
+                limit=limit
+            )
+            deals.extend(best_deals)
+        
+        # Also get investment opportunities
+        investment_opportunities = database_manager.get_top_investment_opportunities(
+            min_cap_rate=min_cap_rate,
+            min_cash_flow=min_cash_flow,
+            limit=limit
+        )
+        
+        # Filter by zip code if specified
+        if zip_code:
+            investment_opportunities = [
+                opp for opp in investment_opportunities 
+                if opp.get('zip_code') == zip_code or 
+                   (opp.get('address') and zip_code in str(opp.get('address', '')))
+            ]
+        
+        # Combine and deduplicate deals
+        all_deals = []
+        seen_properties = set()
+        
+        # Add best deals first
+        for deal in deals:
+            # For deal_insights, use analysis_id as unique identifier
+            deal_id = deal.get('property_id') or deal.get('analysis_id') or deal.get('id')
+            if deal_id and deal_id not in seen_properties:
+                deal['source'] = 'deal_analysis'
+                deal['agent_description'] = generate_agent_description(deal)
+                all_deals.append(deal)
+                seen_properties.add(deal_id)
+        
+        # Add investment opportunities
+        for opp in investment_opportunities:
+            # For investment_analysis, use property_id as unique identifier
+            opp_id = opp.get('property_id') or opp.get('id')
+            if opp_id and opp_id not in seen_properties:
+                opp['source'] = 'investment_analysis'
+                opp['agent_description'] = generate_agent_description(opp)
+                all_deals.append(opp)
+                seen_properties.add(opp_id)
+        
+        # Sort by score/investment_score
+        all_deals.sort(key=lambda x: x.get('overall_score', x.get('investment_score', 0)), reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'data': all_deals[:limit],
+            'total_count': len(all_deals),
+            'zip_code': zip_code
+        })
+        
+    except Exception as e:
+        logger.error(f"Error searching deals: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/deals/summary/<zip_code>')
+def get_deals_summary(zip_code):
+    """Get summary statistics for deals in a zip code."""
+    try:
+        if not database_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Database not initialized'
+            }), 500
+        
+        # Get all deals for the zip code
+        deals = database_manager.get_best_deals(zip_code=zip_code, min_score=0.0, limit=100)
+        investment_opportunities = database_manager.get_top_investment_opportunities(
+            min_cap_rate=0.0, min_cash_flow=0.0, limit=100
+        )
+        
+        # Filter investment opportunities by zip code
+        investment_opportunities = [
+            opp for opp in investment_opportunities 
+            if opp.get('zip_code') == zip_code or 
+               (opp.get('address') and zip_code in str(opp.get('address', '')))
+        ]
+        
+        # Calculate summary statistics
+        total_deals = len(deals)
+        total_investments = len(investment_opportunities)
+        
+        # Deal score statistics
+        deal_scores = [deal.get('overall_score', 0) for deal in deals if deal.get('overall_score')]
+        avg_deal_score = sum(deal_scores) / len(deal_scores) if deal_scores else 0
+        
+        # Investment statistics
+        cap_rates = [inv.get('cap_rate', 0) for inv in investment_opportunities if inv.get('cap_rate')]
+        avg_cap_rate = sum(cap_rates) / len(cap_rates) if cap_rates else 0
+        
+        cash_flows = [inv.get('monthly_cash_flow', 0) for inv in investment_opportunities if inv.get('monthly_cash_flow')]
+        avg_cash_flow = sum(cash_flows) / len(cash_flows) if cash_flows else 0
+        
+        # Get market trends for context
+        market_trends = database_manager.get_market_trends(zip_code, months_back=6)
+        
+        summary = {
+            'zip_code': zip_code,
+            'total_deals': total_deals,
+            'total_investment_opportunities': total_investments,
+            'avg_deal_score': round(avg_deal_score, 1),
+            'avg_cap_rate': round(avg_cap_rate, 2),
+            'avg_monthly_cash_flow': round(avg_cash_flow, 0),
+            'high_score_deals': len([d for d in deals if d.get('overall_score', 0) >= 80]),
+            'market_trends': market_trends
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': summary
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting deals summary: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.errorhandler(404)

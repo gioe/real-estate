@@ -1,15 +1,49 @@
 # Real Estate Data Analyzer Makefile
-# Provides convenient commands for common development and execution ta## run-verbose: Run with verbose logging enabled
-run-verbose:
-	@echo "$(GREEN)Running real estate analyzer with verbose logging...$(NC)"
-	@$(PYTHON) main.py --verbose --config $(CONFIG_DIR)/config.yaml
+# Provides convenient commands for common development and execution tasks
 
 ## run-web: Start Flask web application
 run-web:
 	@echo "$(GREEN)Starting Flask web application...$(NC)"
 	@echo "$(YELLOW)Web interface will be available at http://localhost:5001$(NC)"
 	@$(PYTHON) scripts/run_web.py
-.PHONY: help install install-dev setup clean test lint format run run-fetch run-analyze run-notify run-verbose run-web check-config demo
+
+## kill-web: Kill all running Flask/Python web applications
+kill-web:
+	@echo "$(YELLOW)Killing all running Flask/Python web applications...$(NC)"
+	@echo "$(CYAN)Looking for Flask processes...$(NC)"
+	@-pkill -f "flask|python.*web_app.py|python.*run_web.py" 2>/dev/null || true
+	@echo "$(CYAN)Looking for Python processes on common web ports...$(NC)"
+	@-lsof -ti:5000 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:5001 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:5002 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:5003 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:5004 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@echo "$(GREEN)✅ All web applications killed!$(NC)"
+	@echo "$(BLUE)Note: If processes were running, they may take a moment to fully terminate$(NC)"
+
+## restart-web: Kill all web apps and start fresh
+restart-web: kill-web
+	@sleep 2
+	@$(MAKE) run-web
+
+## init-db: Initialize database with enhanced schema
+init-db:
+	@echo "$(GREEN)Initializing enhanced database schema...$(NC)"
+	@$(PYTHON) -c "from src.core.database import DatabaseManager; db = DatabaseManager({'type': 'sqlite', 'sqlite_path': 'data/real_estate.db'}); print('✅ Database initialized successfully!')"
+
+## db-stats: Show database statistics
+db-stats:
+	@echo "$(GREEN)Database Statistics:$(NC)"
+	@$(PYTHON) -c "from src.core.database import DatabaseManager; import json; db = DatabaseManager({'type': 'sqlite', 'sqlite_path': 'data/real_estate.db'}); stats = db.get_database_stats(); print(json.dumps(stats, indent=2))"
+
+## db-sample: Add sample data for testing
+db-sample:
+	@echo "$(GREEN)Adding sample data to database...$(NC)"
+	@$(PYTHON) -c "import sqlite3; from datetime import datetime; conn = sqlite3.connect('data/real_estate.db'); c = conn.cursor(); c.execute('INSERT OR REPLACE INTO properties (property_id, source, address, city, state, zip_code, price, bedrooms, bathrooms, square_feet, property_type, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ('SAMPLE_001', 'demo', '123 Main St', 'Austin', 'TX', '78701', 450000, 3, 2.0, 1800, 'Single Family', datetime.now().isoformat())); conn.commit(); conn.close(); print('✅ Sample data added!')"
+
+.PHONY: help install install-dev setup clean test lint format run run-fetch run-analyze run-notify run-verbose run-web kill-web restart-web init-db db-stats db-sample check-config demo
 
 # Default Python interpreter (use virtual environment if available)
 PYTHON := $(shell if [ -f .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
@@ -49,6 +83,13 @@ help:
 	@echo "  make run-notify   - Check for matching properties and notify"
 	@echo "  make run-verbose  - Run with verbose logging"
 	@echo "  make run-web      - Start Flask web application"
+	@echo "  make kill-web     - Kill all running Flask/Python web apps"
+	@echo "  make restart-web  - Kill all web apps and start fresh"
+	@echo ""
+	@echo "$(GREEN)Database Management:$(NC)"
+	@echo "  make init-db      - Initialize database with enhanced schema"
+	@echo "  make db-stats     - Show database statistics and table info"
+	@echo "  make db-sample    - Add sample data for testing"
 	@echo ""
 	@echo "$(GREEN)Development & Testing:$(NC)"
 	@echo "  make test         - Run test suite"

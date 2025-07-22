@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Deals Search - RentCast API Explorer{% endblock %}
+
+{% block extra_head %}
+<style>
+    .deal-card {
+        transition: transform 0.2s ease-in-out;
+        border-left: 4px solid #28a745;
+    }
+
+    .deal-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .deal-score {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .deal-score.excellent {
+        color: #28a745;
+    }
+
+    .deal-score.good {
+        color: #ffc107;
+    }
+
+    .deal-score.fair {
+        color: #fd7e14;
+    }
+
+    .deal-score.poor {
+        color: #dc3545;
+    }
+
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .search-section {
+        background: #f8f9fa;
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+
+    .results-header {
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .agent-description {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 3px solid #007bff;
+        font-size: 0.95rem;
+    }
+
+    .agent-description strong {
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-handshake text-success me-2"></i>
+                Investment Deals Analyzer
+            </h1>
+            <div class="badge bg-info fs-6">
+                <i class="fas fa-database me-1"></i>
+                Database-Powered Analysis
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <h3 class="h4 mb-3">
+                <i class="fas fa-search me-2"></i>Search Deals by Area
+            </h3>
+
+            <form id="dealsSearchForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="zipCode" class="form-label">Zip Code</label>
+                        <input type="text" class="form-control" id="zipCode" placeholder="e.g., 78701" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="minScore" class="form-label">Min Score</label>
+                        <input type="number" class="form-control" id="minScore" value="70" min="0" max="100">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="minCapRate" class="form-label">Min Cap Rate (%)</label>
+                        <input type="number" class="form-control" id="minCapRate" value="0" min="0" max="50" step="0.1">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="minCashFlow" class="form-label">Min Cash Flow ($)</label>
+                        <input type="number" class="form-control" id="minCashFlow" value="0" min="0" step="50">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="maxResults" class="form-label">Max Results</label>
+                        <select class="form-select" id="maxResults">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Summary Section -->
+        <div id="summarySection" style="display: none;">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="metric-card text-center">
+                        <div class="metric-value" id="totalDeals">-</div>
+                        <div class="metric-label">Total Deals Found</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card text-center">
+                        <div class="metric-value" id="avgScore">-</div>
+                        <div class="metric-label">Average Deal Score</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card text-center">
+                        <div class="metric-value" id="avgCapRate">-</div>
+                        <div class="metric-label">Average Cap Rate (%)</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card text-center">
+                        <div class="metric-value" id="avgCashFlow">-</div>
+                        <div class="metric-label">Avg Monthly Cash Flow ($)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="h4 mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Investment Opportunities
+                    </h3>
+                    <div id="resultsCount" class="text-muted"></div>
+                </div>
+            </div>
+
+            <div id="dealsResults"></div>
+        </div>
+
+        <!-- No Results -->
+        <div id="noResults" style="display: none;">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <h4>No Deals Found</h4>
+                <p class="mb-0">Try adjusting your search criteria or check a different zip code.</p>
+            </div>
+        </div>
+
+        <!-- Error Messages -->
+        <div id="errorAlert" class="alert alert-danger" style="display: none;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="errorMessage"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Metric Explanation Modal -->
+<div class="modal fade" id="metricModal" tabindex="-1" aria-labelledby="metricModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="metricModalLabel">Metric Explanation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="metricExplanation">
+                    <!-- Explanation content will be inserted here -->
+                    <!-- 
+                    Example explanations that will be dynamically inserted:
+
+                    LIST PRICE EXPLANATION:
+                    List Price is the asking price set by the seller. This is what they're currently asking for the property.
+                    Current Value: $XXX,XXX
+                    This represents the starting point for negotiations and should be compared to the estimated market value to determine if it's fairly priced.
+
+                    ESTIMATED VALUE EXPLANATION:
+                    Estimated Value is the AI-powered market valuation based on comparable properties, market trends, and property characteristics.
+                    Calculation Method: Automated Valuation Model (AVM)
+                    Estimated Value: $XXX,XXX
+                    List Price: $XXX,XXX
+                    Difference: +X.X%
+                    ✅ Good Value: Property appears undervalued
+
+                    CAP RATE EXPLANATION:
+                    Capitalization Rate (Cap Rate) measures the return on investment based on the property's income potential.
+                    Formula: (Annual Net Income ÷ Property Price) × 100
+                    Calculation:
+                    • Annual Gross Rent: $XX,XXX
+                    • Annual Expenses: $X,XXX
+                    • Annual Net Income: $XX,XXX
+                    • Property Price: $XXX,XXX
+                    • Cap Rate: (XX,XXX ÷ XXX,XXX) × 100 = X.X%
+                    ✅ Good: Above-average return
+
+                    CASH FLOW EXPLANATION:
+                    Monthly Cash Flow is the net monthly income after all expenses are paid.
+                    Formula: Monthly Rent - Monthly Expenses - Mortgage Payment
+                    Calculation:
+                    • Monthly Rent: $X,XXX
+                    • Operating Expenses: $XXX
+                    • Estimated Mortgage: $X,XXX
+                    • Net Cash Flow: $XXX
+                    ✅ Good: Healthy cash flow
+                    Note: Mortgage estimate assumes 20% down, 6.7% interest rate
+
+                    ESTIMATED RENT EXPLANATION:
+                    Estimated Monthly Rent is the AI-predicted rental income based on comparable rentals in the area.
+                    Current Estimate: $X,XXX/month
+                    Annual Rent: $XX,XXX
+                    Gross Rental Yield: X.XX%
+                    Calculation Method:
+                    • Comparable rental analysis
+                    • Property size and features
+                    • Local market conditions
+                    • Recent rental transactions
+                    ✅ Good: Above-average yield
+                    -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Initialize the page when DOM loads
+    document.addEventListener('DOMContentLoaded', function () {
+        const dealSearch = new DealSearch();
+
+        // Set up modal event listener
+        const metricModal = document.getElementById('metricModal');
+        metricModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const title = button.getAttribute('data-metric-title');
+            const explanation = button.getAttribute('data-metric-explanation');
+
+            const modalTitle = metricModal.querySelector('.modal-title');
+            const modalBody = metricModal.querySelector('#metricExplanation');
+
+            modalTitle.textContent = title + ' - Calculation Details';
+            modalBody.innerHTML = explanation;
+        });
+    });
+</script>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/deals.js') }}"></script>
+{% endblock %}
