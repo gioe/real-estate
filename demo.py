@@ -13,10 +13,10 @@ from pathlib import Path
 # Add src directory to path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.config_manager import ConfigManager
-from src.database import DatabaseManager
-from src.data_analyzer import RealEstateAnalyzer
-from src.notification_system import NotificationManager
+from src.config.config_manager import ConfigManager
+from src.core.database import DatabaseManager
+from src.core.data_analyzer import RealEstateAnalyzer
+from src.notifications.notification_system import NotificationManager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

@@ -3,16 +3,51 @@ Database Manager Module
 
 This module handles database operations for storing and retrieving real estate data.
 Supports SQLite by default with options for PostgreSQL integration.
+Includes comprehensive pagination support for handling large datasets.
 """
 
 import sqlite3
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, NamedTuple
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PaginationParams:
+    """Parameters for database pagination."""
+    limit: int = 50
+    offset: int = 0
+    
+    def __post_init__(self):
+        """Validate pagination parameters."""
+        if self.limit < 1 or self.limit > 500:
+            raise ValueError("Limit must be between 1 and 500")
+        if self.offset < 0:
+            raise ValueError("Offset must be non-negative")
+
+
+@dataclass
+class PaginatedResult:
+    """Result container for paginated database queries."""
+    data: List[Dict[str, Any]]
+    total_count: int
+    limit: int
+    offset: int
+    has_more: bool
+    next_offset: Optional[int] = None
+    
+    def __post_init__(self):
+        """Calculate pagination metadata."""
+        self.has_more = (self.offset + len(self.data)) < self.total_count
+        if self.has_more:
+            self.next_offset = self.offset + self.limit
+        else:
+            self.next_offset = None
 
 
 class DatabaseManager:
@@ -317,6 +352,200 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting properties by criteria: {str(e)}")
             return []
+    
+    # Paginated query methods
+    
+    def get_properties_paginated(self, pagination: PaginationParams, 
+                                criteria: Optional[Dict[str, Any]] = None) -> PaginatedResult:
+        """
+        Get properties with pagination support.
+        
+        Args:
+            pagination: Pagination parameters (limit, offset)
+            criteria: Optional search criteria
+            
+        Returns:
+            PaginatedResult containing properties and pagination metadata
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Build base query
+                base_query = "FROM properties WHERE 1=1"
+                params = []
+                
+                # Add criteria filters if provided
+                if criteria:
+                    query_parts, filter_params = self._build_criteria_query(criteria)
+                    base_query += query_parts
+                    params.extend(filter_params)
+                
+                # Get total count
+                count_query = f"SELECT COUNT(*) {base_query}"
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()[0]
+                
+                # Get paginated data
+                data_query = f"SELECT * {base_query} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+                cursor.execute(data_query, params + [pagination.limit, pagination.offset])
+                rows = cursor.fetchall()
+                
+                # Process results
+                properties = []
+                for row in rows:
+                    prop = dict(row)
+                    # Parse raw_data if it exists
+                    if prop.get('raw_data'):
+                        try:
+                            prop['raw_data'] = json.loads(prop['raw_data'])
+                        except json.JSONDecodeError:
+                            pass
+                    properties.append(prop)
+                
+                return PaginatedResult(
+                    data=properties,
+                    total_count=total_count,
+                    limit=pagination.limit,
+                    offset=pagination.offset,
+                    has_more=False  # Will be calculated in __post_init__
+                )
+                
+        except Exception as e:
+            logger.error(f"Error getting paginated properties: {str(e)}")
+            return PaginatedResult(
+                data=[],
+                total_count=0,
+                limit=pagination.limit,
+                offset=pagination.offset,
+                has_more=False
+            )
+    
+    def get_recent_properties_paginated(self, days: int = 7, 
+                                       pagination: PaginationParams = PaginationParams()) -> PaginatedResult:
+        """
+        Get recent properties with pagination support.
+        
+        Args:
+            days: Number of days to look back
+            pagination: Pagination parameters
+            
+        Returns:
+            PaginatedResult containing recent properties and pagination metadata
+        """
+        try:
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+            
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Get total count
+                cursor.execute('''
+                    SELECT COUNT(*) FROM properties 
+                    WHERE fetched_at > ?
+                ''', (cutoff_date,))
+                total_count = cursor.fetchone()[0]
+                
+                # Get paginated data
+                cursor.execute('''
+                    SELECT * FROM properties 
+                    WHERE fetched_at > ? 
+                    ORDER BY fetched_at DESC
+                    LIMIT ? OFFSET ?
+                ''', (cutoff_date, pagination.limit, pagination.offset))
+                
+                rows = cursor.fetchall()
+                properties = [dict(row) for row in rows]
+                
+                return PaginatedResult(
+                    data=properties,
+                    total_count=total_count,
+                    limit=pagination.limit,
+                    offset=pagination.offset,
+                    has_more=False  # Will be calculated in __post_init__
+                )
+                
+        except Exception as e:
+            logger.error(f"Error getting paginated recent properties: {str(e)}")
+            return PaginatedResult(
+                data=[],
+                total_count=0,
+                limit=pagination.limit,
+                offset=pagination.offset,
+                has_more=False
+            )
+    
+    def _build_criteria_query(self, criteria: Dict[str, Any]) -> Tuple[str, List[Any]]:
+        """
+        Build SQL query parts and parameters from search criteria.
+        
+        Args:
+            criteria: Search criteria dictionary
+            
+        Returns:
+            Tuple of (query_string, parameters_list)
+        """
+        query_parts = []
+        params = []
+        
+        # Price range
+        if 'price' in criteria:
+            price_criteria = criteria['price']
+            if 'min' in price_criteria:
+                query_parts.append("AND price >= ?")
+                params.append(price_criteria['min'])
+            if 'max' in price_criteria:
+                query_parts.append("AND price <= ?")
+                params.append(price_criteria['max'])
+        
+        # Bedrooms
+        if 'bedrooms' in criteria:
+            bed_criteria = criteria['bedrooms']
+            if 'min' in bed_criteria:
+                query_parts.append("AND bedrooms >= ?")
+                params.append(bed_criteria['min'])
+        
+        # Bathrooms
+        if 'bathrooms' in criteria:
+            bath_criteria = criteria['bathrooms']
+            if 'min' in bath_criteria:
+                query_parts.append("AND bathrooms >= ?")
+                params.append(bath_criteria['min'])
+        
+        # Square feet
+        if 'square_feet' in criteria:
+            sqft_criteria = criteria['square_feet']
+            if 'min' in sqft_criteria:
+                query_parts.append("AND square_feet >= ?")
+                params.append(sqft_criteria['min'])
+            if 'max' in sqft_criteria:
+                query_parts.append("AND square_feet <= ?")
+                params.append(sqft_criteria['max'])
+        
+        # Cities
+        if 'cities' in criteria and 'in' in criteria['cities']:
+            cities = criteria['cities']['in']
+            placeholders = ','.join(['?' for _ in cities])
+            query_parts.append(f"AND city IN ({placeholders})")
+            params.extend(cities)
+        
+        # Property type
+        if 'property_type' in criteria and 'in' in criteria['property_type']:
+            types = criteria['property_type']['in']
+            placeholders = ','.join(['?' for _ in types])
+            query_parts.append(f"AND property_type IN ({placeholders})")
+            params.extend(types)
+        
+        # Days on market
+        if 'days_on_market' in criteria:
+            dom_criteria = criteria['days_on_market']
+            if 'max' in dom_criteria:
+                query_parts.append("AND days_on_market <= ?")
+                params.append(dom_criteria['max'])
+        
+        return ' ' + ' '.join(query_parts), params
     
     def get_city_statistics(self) -> List[Dict[str, Any]]:
         """Get statistics grouped by city."""

@@ -19,10 +19,10 @@ import random
 # Add src directory to path for imports
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.data_analyzer import RealEstateAnalyzer
-from src.visualization import GraphGenerator
-from src.config_manager import ConfigManager
-from src.database import DatabaseManager
+from src.core.data_analyzer import RealEstateAnalyzer
+from src.visualization.visualization import GraphGenerator
+from src.config.config_manager import ConfigManager
+from src.core.database import DatabaseManager
 
 # Configure logging
 logging.basicConfig(

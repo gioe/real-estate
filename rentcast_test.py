@@ -14,8 +14,8 @@ from pathlib import Path
 # Add src directory to path for imports
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.config_manager import ConfigManager
-from src.data_fetcher import RealEstateDataFetcher
+from src.config.config_manager import ConfigManager
+from src.core.data_fetcher import RealEstateDataFetcher
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -114,6 +114,8 @@ def main():
     if config_ok and fetcher_ok:
         logger.info("\n✅ RENTCAST integration is ready!")
         logger.info("You can now run: python main.py --mode fetch")
+        logger.info("\n💡 Want to test all API endpoints?")
+        logger.info("Run: python test_rentcast_endpoints.py")
     else:
         logger.info("\n❌ RENTCAST integration needs setup")
         show_setup_instructions()
