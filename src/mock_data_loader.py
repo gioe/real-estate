@@ -12,8 +12,6 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 from .schemas.rentcast_schemas import PropertyListing, AVMValueResponse, MarketStatistics
-from .core.deal_analyzer import DealScore
-
 
 logger = logging.getLogger(__name__)
 

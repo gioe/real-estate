@@ -14,7 +14,6 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import json
 import urllib.request
-import urllib.parse
 
 logger = logging.getLogger(__name__)
 

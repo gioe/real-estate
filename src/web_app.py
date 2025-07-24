@@ -6,19 +6,15 @@ allowing users to search and analyze investment opportunities.
 """
 
 import logging
-import json
-from typing import Dict, Any, Optional, List, Union
-from datetime import datetime
+from typing import Dict, Any, List, Union
 from dataclasses import asdict
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 import os
-from pathlib import Path
 
 from src.api.rentcast_client import RentCastClient
 from src.config.config_manager import ConfigManager
 from src.core.database import DatabaseManager
-from src.api.rentcast_errors import RentCastAPIError, RentCastNoResultsError
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
