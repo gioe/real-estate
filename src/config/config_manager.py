@@ -236,33 +236,6 @@ class ConfigManager:
         """Get logging configuration."""
         return self.config.get('logging', {})
     
-    def get_zip_codes_config(self, zip_codes_file: str = 'config/zip_codes.yaml') -> Dict[str, Any]:
-        """Load zip codes configuration from separate file."""
-        zip_codes_path = Path(zip_codes_file)
-        
-        if not zip_codes_path.exists():
-            logger.warning(f"Zip codes configuration file not found: {zip_codes_path}")
-            return {
-                'zip_codes': ['10804'],  # Default to the first zip code
-                'zip_code_processing': {
-                    'properties_per_zip': 100,
-                    'fetch_sales': True,
-                    'fetch_rentals': True,
-                    'delay_between_zips': 2,
-                    'property_types': ['Single Family', 'Condo'],
-                    'filters': {}
-                }
-            }
-        
-        try:
-            with open(zip_codes_path, 'r') as f:
-                zip_config = yaml.safe_load(f) or {}
-            logger.info(f"Loaded zip codes configuration from {zip_codes_path}")
-            return zip_config
-        except Exception as e:
-            logger.error(f"Error loading zip codes configuration: {e}")
-            return {'zip_codes': ['10804'], 'zip_code_processing': {}}
-    
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value by key (supports dot notation)."""
         keys = key.split('.')

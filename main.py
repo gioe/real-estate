@@ -87,13 +87,14 @@ def main():
         notification_manager = NotificationManager(config.get_notification_config())
         
         if args.mode in ['fetch', 'all']:
-            logger.info("Fetching real estate data...")
-            new_properties = data_fetcher.fetch_all_sources()
-            if new_properties:
-                db.save_properties(new_properties)
-                logger.info(f"Saved {len(new_properties)} new properties to database")
+            logger.info("Fetching real estate listings...")
+            new_listings = data_fetcher.fetch_all_sources()
+            if new_listings:
+                # Save listings to database
+                db.save_listings(new_listings)
+                logger.info(f"Saved {len(new_listings)} new listings to database")
             else:
-                logger.info("No new properties found")
+                logger.info("No new listings found")
         
         if args.mode in ['analyze', 'all']:
             logger.info("Analyzing data and generating reports...")
@@ -108,16 +109,16 @@ def main():
             logger.info(f"Generated {len(graphs)} visualization files")
         
         if args.mode in ['notify', 'all']:
-            logger.info("Checking for properties matching notification criteria...")
-            matching_properties = analyzer.find_matching_properties(
+            logger.info("Checking for listings matching notification criteria...")
+            matching_listings = analyzer.find_matching_properties(
                 config.get_search_criteria()
             )
             
-            if matching_properties:
-                notification_manager.send_property_alerts(matching_properties)
-                logger.info(f"Sent notifications for {len(matching_properties)} matching properties")
+            if matching_listings:
+                notification_manager.send_property_alerts(matching_listings)
+                logger.info(f"Sent notifications for {len(matching_listings)} matching listings")
             else:
-                logger.info("No properties match the notification criteria")
+                logger.info("No listings match the notification criteria")
         
         logger.info("Real Estate Data Analyzer completed successfully")
         

@@ -8,9 +8,9 @@ This is a comprehensive Python scripting project for real estate data analysis w
 
 ## Project Purpose
 
-- Fetch real estate data from RentCast API and other sources (MLS, Zillow, Redfin)
+- Fetch real estate listings from RentCast API and other sources (MLS, Zillow, Redfin)
 - Generate comprehensive market analysis and visualizations
-- Send intelligent notifications when properties matching specific criteria are found
+- Send intelligent notifications when listings matching specific criteria are found
 - Perform advanced data analysis, trend identification, and investment analysis
 - Provide automated valuation models (AVM) for property values and rental estimates
 - Support bulk data processing with pagination and rate limiting
@@ -51,7 +51,7 @@ src/
 │   └── config_manager.py        # YAML/JSON configuration handling
 ├── core/                         # Core business logic
 │   ├── data_analyzer.py         # Real estate analysis engine
-│   ├── data_fetcher.py          # Multi-source data fetching with pagination
+│   ├── data_fetcher.py          # Multi-source listings fetching with pagination
 │   ├── database.py              # Database operations and schema management
 │   └── search_queries.py        # Structured search query system
 ├── notifications/                # Alert and notification system
@@ -262,9 +262,9 @@ Comprehensive pagination support for handling large datasets:
 Example usage:
 
 ```python
-# Paginate through all properties
-for response in fetcher.fetch_properties_paginated(search_params, max_pages=10):
-    properties = response.data
+# Paginate through all listings
+for response in fetcher.fetch_listings_paginated(search_params, max_pages=10):
+    listings = response.data
     # Process each page
 
 # Fetch all results automatically
@@ -334,8 +334,27 @@ class PropertySchema:
 api:
   rentcast_api_key: "${RENTCAST_API_KEY}"
   rentcast_endpoint: "https://api.rentcast.io/v1"
-  rentcast_rate_limit: 100
+  rentcast_rate_limit: 20
   default_page_size: 50
+
+  # Zip codes configuration for data fetching
+  zip_codes:
+    - "10804" # Westchester County, NY
+
+  zip_code_processing:
+    listings_per_zip: 100
+    fetch_sales: true
+    fetch_rentals: true
+    delay_between_zips: 2
+    property_types:
+      - "Single Family"
+      - "Condo"
+      - "Townhouse"
+    filters:
+      min_beds: 1
+      max_beds: 10
+      min_baths: 1
+      max_price: 10000000
 
 # Search criteria
 search_criteria:
@@ -355,6 +374,10 @@ search_criteria:
 database:
   type: "sqlite"
   path: "data/real_estate.db"
+  # Tables:
+  # - listings: Raw market listings from APIs (sale/rental)
+  # - properties: Legacy table (for backward compatibility)
+  # - avm_valuations, market_statistics, etc.
 
 # Notification settings
 notifications:
@@ -374,10 +397,10 @@ The `main.py` orchestrates the entire data pipeline:
 1. **Configuration Loading**: Load YAML config and environment variables
 2. **Database Initialization**: Set up SQLite/PostgreSQL database
 3. **Component Initialization**: Initialize fetcher, analyzer, visualizer, notifications
-4. **Data Fetching**: Fetch new properties from configured sources (mode: fetch)
-5. **Analysis**: Analyze data and generate reports (mode: analyze)
+4. **Data Fetching**: Fetch new listings from configured sources (mode: fetch)
+5. **Analysis**: Analyze listings data and generate reports (mode: analyze)
 6. **Visualization**: Generate charts and graphs with timestamps
-7. **Notifications**: Check for matching properties and send alerts (mode: notify)
+7. **Notifications**: Check for matching listings and send alerts (mode: notify)
 
 Execution modes:
 

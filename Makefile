@@ -47,7 +47,7 @@ db-sample:
 
 # Default Python interpreter (use virtual environment if available)
 PYTHON := $(shell if [ -f .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
-PIP := pip3
+PIP := $(shell if [ -f .venv/bin/pip ]; then echo .venv/bin/pip; else echo pip3; fi)
 
 # Project directories
 SRC_DIR := src

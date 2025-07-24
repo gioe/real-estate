@@ -39,14 +39,14 @@ class RealEstateAnalyzer:
         logger.info("Starting comprehensive real estate analysis")
         
         try:
-            # Get all properties from database
-            properties = self.db.get_all_properties()
+            # Get all listings from database
+            listings = self.db.get_all_listings()
             
-            if not properties:
-                logger.warning("No properties found in database")
+            if not listings:
+                logger.warning("No listings found in database")
                 return {}
             
-            df = pd.DataFrame(properties)
+            df = pd.DataFrame(listings)
             
             # Run various analyses
             analysis_results = {
@@ -55,6 +55,9 @@ class RealEstateAnalyzer:
                 'location_analysis': self.analyze_locations(df),
                 'property_type_analysis': self.analyze_property_types(df),
                 'time_on_market': self.analyze_time_on_market(df),
+                'listing_analysis': self.analyze_listings(df),  # New listing-specific analysis
+                'source_analysis': self.analyze_sources(df),   # New source comparison
+                'market_velocity': self.analyze_market_velocity(df),  # New velocity analysis
                 'investment_opportunities': self.find_investment_opportunities(df),
                 'market_summary': self.generate_market_summary(df),
                 'analysis_timestamp': datetime.now().isoformat()
@@ -343,12 +346,176 @@ class RealEstateAnalyzer:
             logger.error(f"Error finding investment opportunities: {str(e)}")
             return {}
     
-    def generate_market_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def analyze_listings(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
-        Generate a high-level market summary.
+        Analyze listing-specific data (status, type, etc.).
         
         Args:
-            df: DataFrame containing property data
+            df: DataFrame containing listings data
+            
+        Returns:
+            Dictionary with listing analysis
+        """
+        logger.info("Analyzing listings data")
+        
+        try:
+            listing_analysis = {}
+            
+            # Listing type distribution
+            if 'listing_type' in df.columns:
+                listing_analysis['type_distribution'] = df['listing_type'].value_counts().to_dict()
+            
+            # Listing status analysis
+            if 'status' in df.columns:
+                listing_analysis['status_distribution'] = df['status'].value_counts().to_dict()
+            
+            # Active vs inactive listings
+            if 'status' in df.columns:
+                active_count = len(df[df['status'] == 'active'])
+                total_count = len(df)
+                listing_analysis['active_ratio'] = active_count / total_count if total_count > 0 else 0
+            
+            # Sale vs rental analysis
+            if 'listing_type' in df.columns:
+                sale_listings = df[df['listing_type'] == 'sale']
+                rental_listings = df[df['listing_type'] == 'rental']
+                
+                if not sale_listings.empty and not rental_listings.empty:
+                    listing_analysis['sale_vs_rental'] = {
+                        'sale_count': len(sale_listings),
+                        'rental_count': len(rental_listings),
+                        'avg_sale_price': float(sale_listings['price'].mean()) if 'price' in sale_listings.columns else None,
+                        'avg_rental_price': float(rental_listings['price'].mean()) if 'price' in rental_listings.columns else None
+                    }
+            
+            return listing_analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing listings: {str(e)}")
+            return {}
+    
+    def analyze_sources(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Analyze data sources and their quality.
+        
+        Args:
+            df: DataFrame containing listings data
+            
+        Returns:
+            Dictionary with source analysis
+        """
+        logger.info("Analyzing data sources")
+        
+        try:
+            source_analysis = {}
+            
+            if 'source' not in df.columns:
+                return source_analysis
+            
+            # Source distribution
+            source_analysis['distribution'] = df['source'].value_counts().to_dict()
+            
+            # Source quality metrics
+            source_counts = df.groupby('source').size()
+            source_analysis['source_counts'] = source_counts.to_dict()
+            
+            # Basic completeness check
+            completeness_by_source = {}
+            for source in df['source'].unique():
+                source_data = df[df['source'] == source]
+                total = len(source_data)
+                complete_price = len(source_data.dropna(subset=['price']))
+                complete_beds = len(source_data.dropna(subset=['bedrooms']))
+                complete_sqft = len(source_data.dropna(subset=['square_feet']))
+                
+                completeness_by_source[source] = {
+                    'total_listings': total,
+                    'price_completeness': (complete_price / total) * 100 if total > 0 else 0,
+                    'bedrooms_completeness': (complete_beds / total) * 100 if total > 0 else 0,
+                    'sqft_completeness': (complete_sqft / total) * 100 if total > 0 else 0
+                }
+            
+            source_analysis['completeness_by_source'] = completeness_by_source
+            
+            return source_analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing sources: {str(e)}")
+            return {}
+    
+    def analyze_market_velocity(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Analyze market velocity and listing turnover.
+        
+        Args:
+            df: DataFrame containing listings data
+            
+        Returns:
+            Dictionary with market velocity analysis
+        """
+        logger.info("Analyzing market velocity")
+        
+        try:
+            velocity_analysis = {}
+            
+            # Convert dates for time-based analysis
+            if 'created_at' in df.columns:
+                df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
+                df = df.dropna(subset=['created_at'])
+                
+                # Daily listing volume
+                daily_volume = df.groupby(df['created_at'].dt.date).size()
+                velocity_analysis['daily_volume'] = {
+                    'mean': float(daily_volume.mean()),
+                    'std': float(daily_volume.std()),
+                    'trend': self._calculate_trend(daily_volume)
+                }
+                
+                # Weekly patterns
+                df['day_of_week'] = df['created_at'].dt.day_name()
+                velocity_analysis['weekly_pattern'] = df['day_of_week'].value_counts().to_dict()
+            
+            # Listing freshness
+            if 'fetched_at' in df.columns:
+                df['fetched_at'] = pd.to_datetime(df['fetched_at'], errors='coerce')
+                df = df.dropna(subset=['fetched_at'])
+                now = pd.Timestamp.now()
+                
+                # Calculate age in hours for each listing
+                listing_ages = []
+                for fetch_time in df['fetched_at']:
+                    age_hours = (now - fetch_time).total_seconds() / 3600
+                    listing_ages.append(age_hours)
+                
+                df['listing_age_hours'] = listing_ages
+                
+                velocity_analysis['listing_freshness'] = {
+                    'avg_age_hours': float(df['listing_age_hours'].mean()),
+                    'fresh_listings_24h': len(df[df['listing_age_hours'] <= 24]),
+                    'stale_listings_7d': len(df[df['listing_age_hours'] >= 168])  # 7 days
+                }
+            
+            # Price change velocity (if multiple listings for same property)
+            if 'property_id' in df.columns:
+                property_counts = df['property_id'].value_counts()
+                repeat_properties = property_counts[property_counts > 1]
+                velocity_analysis['repeat_listings'] = {
+                    'properties_with_multiple_listings': len(repeat_properties),
+                    'avg_listings_per_property': float(property_counts.mean())
+                }
+            
+            return velocity_analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing market velocity: {str(e)}")
+            return {}
+    
+    def generate_market_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Generate a high-level market summary from listings data.
+        
+        Args:
+            df: DataFrame containing listings data
             
         Returns:
             Dictionary with market summary
@@ -357,7 +524,7 @@ class RealEstateAnalyzer:
         
         try:
             summary = {
-                'total_properties': len(df),
+                'total_listings': len(df),
                 'date_range': {
                     'start': df['listing_date'].min() if 'listing_date' in df.columns else None,
                     'end': df['listing_date'].max() if 'listing_date' in df.columns else None
@@ -368,6 +535,10 @@ class RealEstateAnalyzer:
                 }
             }
             
+            # Listing type breakdown
+            if 'listing_type' in df.columns:
+                summary['listing_types'] = df['listing_type'].value_counts().to_dict()
+            
             if 'city' in df.columns:
                 summary['geographic_coverage'] = {
                     'cities_covered': df['city'].nunique(),
@@ -377,6 +548,10 @@ class RealEstateAnalyzer:
             if 'property_type' in df.columns:
                 summary['property_types'] = df['property_type'].value_counts().to_dict()
             
+            # Source breakdown
+            if 'source' in df.columns:
+                summary['data_sources'] = df['source'].value_counts().to_dict()
+            
             return summary
             
         except Exception as e:
@@ -385,23 +560,24 @@ class RealEstateAnalyzer:
     
     def find_matching_properties(self, criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Find properties matching specific criteria for notifications.
+        Find listings matching specific criteria for notifications.
         
         Args:
             criteria: Dictionary with search criteria
             
         Returns:
-            List of matching properties
+            List of matching listings
         """
-        logger.info("Finding properties matching notification criteria")
+        logger.info("Finding listings matching notification criteria")
         
         try:
-            properties = self.db.get_recent_properties(days=1)  # Only check recent properties
+            # Get recent listings instead of properties
+            recent_listings = self.db.get_all_listings(limit=1000)  # Limit for performance
             
-            if not properties:
+            if not recent_listings:
                 return []
             
-            df = pd.DataFrame(properties)
+            df = pd.DataFrame(recent_listings)
             matching = df.copy()
             
             # Apply filters based on criteria
@@ -422,10 +598,14 @@ class RealEstateAnalyzer:
                     # Simple equality check
                     matching = matching[matching[field] == conditions]
             
-            return matching.to_dict('records')
+            # Convert to list of dictionaries
+            result = []
+            for _, row in matching.iterrows():
+                result.append(dict(row))
+            return result
             
         except Exception as e:
-            logger.error(f"Error finding matching properties: {str(e)}")
+            logger.error(f"Error finding matching listings: {str(e)}")
             return []
     
     def _calculate_trend(self, series: pd.Series) -> str:
@@ -438,14 +618,19 @@ class RealEstateAnalyzer:
         y = series.values
         
         # Remove NaN values
-        mask = ~np.isnan(y)
+        try:
+            y_array = np.array(y, dtype=float)
+            mask = ~np.isnan(y_array)
+        except (ValueError, TypeError):
+            return "insufficient_data"
+            
         if np.sum(mask) < 2:
             return "insufficient_data"
         
         x = x[mask]
-        y = y[mask]
+        y_array = y_array[mask]
         
-        slope = np.polyfit(x, y, 1)[0]
+        slope = np.polyfit(x, y_array, 1)[0]
         
         if slope > 0:
             return "increasing"

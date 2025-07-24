@@ -6,13 +6,13 @@ Supports SQLite by default with options for PostgreSQL integration.
 Includes comprehensive pagination support for handling large datasets.
 """
 
-import sqlite3
+import json
 import logging
-from typing import Dict, List, Any, Optional, Tuple, NamedTuple
+import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-import json
-from dataclasses import dataclass
+from typing import Dict, List, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,39 @@ class DatabaseManager:
                         property_type TEXT,
                         listing_date TEXT,
                         days_on_market INTEGER,
+                        url TEXT,
+                        latitude REAL,
+                        longitude REAL,
+                        description TEXT,
+                        raw_data TEXT,
+                        fetched_at TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Create listings table (new approach for storing market listings)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS listings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        listing_id TEXT UNIQUE,
+                        property_id TEXT,
+                        source TEXT NOT NULL,
+                        listing_type TEXT NOT NULL, -- 'sale' or 'rental'
+                        address TEXT,
+                        city TEXT,
+                        state TEXT,
+                        zip_code TEXT,
+                        price REAL,
+                        bedrooms INTEGER,
+                        bathrooms REAL,
+                        square_feet INTEGER,
+                        lot_size REAL,
+                        year_built INTEGER,
+                        property_type TEXT,
+                        listing_date TEXT,
+                        days_on_market INTEGER,
+                        status TEXT, -- 'active', 'pending', 'sold', etc.
                         url TEXT,
                         latitude REAL,
                         longitude REAL,
@@ -256,6 +289,26 @@ class DatabaseManager:
                 ''')
                 
                 cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_listings_city 
+                    ON listings(city)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_listings_price 
+                    ON listings(price)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_listings_type 
+                    ON listings(listing_type)
+                ''')
+                
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_listings_status 
+                    ON listings(status)
+                ''')
+                
+                cursor.execute('''
                     CREATE INDEX IF NOT EXISTS idx_properties_listing_date 
                     ON properties(listing_date)
                 ''')
@@ -389,6 +442,48 @@ class DatabaseManager:
             logger.error(f"Error saving properties: {str(e)}")
             return 0
     
+    def save_listings(self, listings: List[Dict[str, Any]]) -> int:
+        """
+        Save listings to the database.
+        
+        Args:
+            listings: List of listing dictionaries from APIs
+            
+        Returns:
+            Number of listings saved
+        """
+        if not listings:
+            return 0
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                saved_count = 0
+                
+                for listing in listings:
+                    # Prepare listing data
+                    listing_data = self._prepare_listing_data(listing)
+                    
+                    # Try to insert or update
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO listings 
+                        (listing_id, property_id, source, listing_type, address, city, state, zip_code, price, 
+                         bedrooms, bathrooms, square_feet, lot_size, year_built, 
+                         property_type, listing_date, days_on_market, status, url, 
+                         latitude, longitude, description, raw_data, fetched_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', listing_data)
+                    
+                    saved_count += 1
+                
+                conn.commit()
+                logger.info(f"Saved {saved_count} listings to database")
+                return saved_count
+                
+        except Exception as e:
+            logger.error(f"Error saving listings: {str(e)}")
+            return 0
+    
     def get_all_properties(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get all properties from the database.
@@ -426,6 +521,45 @@ class DatabaseManager:
                 
         except Exception as e:
             logger.error(f"Error getting properties: {str(e)}")
+            return []
+    
+    def get_all_listings(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get all listings from the database.
+        
+        Args:
+            limit: Optional limit on number of listings to return
+            
+        Returns:
+            List of listing dictionaries
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                query = "SELECT * FROM listings ORDER BY created_at DESC"
+                if limit:
+                    query += f" LIMIT {limit}"
+                
+                cursor.execute(query)
+                rows = cursor.fetchall()
+                
+                listings = []
+                for row in rows:
+                    listing = dict(row)
+                    # Parse raw_data if it exists
+                    if listing.get('raw_data'):
+                        try:
+                            listing['raw_data'] = json.loads(listing['raw_data'])
+                        except json.JSONDecodeError:
+                            pass
+                    listings.append(listing)
+                
+                return listings
+                
+        except Exception as e:
+            logger.error(f"Error getting listings: {str(e)}")
             return []
     
     def get_recent_properties(self, days: int = 7) -> List[Dict[str, Any]]:
@@ -612,8 +746,9 @@ class DatabaseManager:
                 has_more=False
             )
     
-    def get_recent_properties_paginated(self, days: int = 7, 
-                                       pagination: PaginationParams = PaginationParams()) -> PaginatedResult:
+    def get_recent_properties_paginated(self, days: int = 7,
+                                       pagination: PaginationParams = PaginationParams()
+                                       ) -> PaginatedResult:
         """
         Get recent properties with pagination support.
         
@@ -814,7 +949,8 @@ class DatabaseManager:
                 
                 # Extract key AVM metrics
                 estimated_value = avm_data.get('value')
-                estimated_rent = avm_data.get('rent', {}).get('estimate') if avm_data.get('rent') else None
+                estimated_rent = (avm_data.get('rent', {}).get('estimate')
+                                if avm_data.get('rent') else None)
                 confidence = avm_data.get('confidence')
                 
                 # Value ranges
@@ -911,8 +1047,9 @@ class DatabaseManager:
                             sale_data.get('inventoryCount'),
                             sale_data.get('averageDaysOnMarket'),
                             # Calculate rent yield if we have both sale and rental prices
-                            ((rental_data.get('averagePrice', 0) * 12) / sale_data.get('averagePrice', 1) * 100) 
-                            if sale_data.get('averagePrice') else None,
+                            (((rental_data.get('averagePrice', 0) * 12) /
+                              sale_data.get('averagePrice', 1) * 100)
+                             if sale_data.get('averagePrice') else None),
                             # Price trends (would need historical data)
                             None, None, None,
                             json.dumps(market_data),
@@ -928,7 +1065,8 @@ class DatabaseManager:
             logger.error(f"Error saving market statistics: {str(e)}")
             return False
     
-    def save_property_comparables(self, source_property_id: str, comparables: List[Dict[str, Any]]) -> bool:
+    def save_property_comparables(self, source_property_id: str,
+                                 comparables: List[Dict[str, Any]]) -> bool:
         """
         Save comparable properties data.
         
@@ -968,7 +1106,8 @@ class DatabaseManager:
                     ))
                 
                 conn.commit()
-                logger.info(f"Saved {len(comparables)} comparables for property {source_property_id}")
+                logger.info(f"Saved {len(comparables)} comparables "
+                           f"for property {source_property_id}")
                 return True
                 
         except Exception as e:
@@ -1024,7 +1163,7 @@ class DatabaseManager:
             return False
     
     def save_price_history(self, property_id: str, price: float, price_type: str, 
-                          date_recorded: str, source: str, notes: str = None) -> bool:
+                          date_recorded: str, source: str, notes: Optional[str] = None) -> bool:
         """
         Save price history entry for a property.
         
@@ -1115,8 +1254,10 @@ class DatabaseManager:
                 # Get date ranges for main tables
                 for table in ['properties', 'avm_valuations', 'market_statistics']:
                     try:
-                        date_column = 'created_at' if table == 'properties' else 'fetched_at'
-                        cursor.execute(f"SELECT MIN({date_column}), MAX({date_column}) FROM {table}")
+                        date_column = ('created_at' if table == 'properties'
+                                      else 'fetched_at')
+                        cursor.execute(f"SELECT MIN({date_column}), "
+                                      f"MAX({date_column}) FROM {table}")
                         date_range = cursor.fetchone()
                         stats[f'{table}_date_range'] = {
                             'earliest': date_range[0],
@@ -1234,8 +1375,9 @@ class DatabaseManager:
             logger.error(f"Error getting AVM valuation: {str(e)}")
             return None
     
-    def get_market_statistics(self, zip_code: str, property_type: str = None, 
-                             bedrooms: int = None) -> List[Dict[str, Any]]:
+    def get_market_statistics(self, zip_code: str,
+                             property_type: Optional[str] = None,
+                             bedrooms: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get market statistics for a specific area."""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -1251,7 +1393,7 @@ class DatabaseManager:
                 
                 if bedrooms is not None:
                     query += " AND bedrooms = ?"
-                    params.append(bedrooms)
+                    params.append(bedrooms)  # type: ignore
                 
                 query += " ORDER BY analysis_month DESC"
                 
@@ -1296,7 +1438,8 @@ class DatabaseManager:
                     # Parse raw_comparable_data if it exists
                     if result.get('raw_comparable_data'):
                         try:
-                            result['raw_comparable_data'] = json.loads(result['raw_comparable_data'])
+                            result['raw_comparable_data'] = json.loads(
+                                result['raw_comparable_data'])
                         except json.JSONDecodeError:
                             pass
                     results.append(result)
@@ -1410,15 +1553,18 @@ class DatabaseManager:
                     previous = historical_data[-1]
                     
                     if latest['avg_price'] and previous['avg_price']:
-                        price_change = ((latest['avg_price'] - previous['avg_price']) / previous['avg_price']) * 100
+                        price_change = (((latest['avg_price'] - previous['avg_price']) /
+                                        previous['avg_price']) * 100)
                         trends['price_trend'] = round(price_change, 2)
                     
                     if latest['avg_rent'] and previous['avg_rent']:
-                        rent_change = ((latest['avg_rent'] - previous['avg_rent']) / previous['avg_rent']) * 100
+                        rent_change = (((latest['avg_rent'] - previous['avg_rent']) /
+                                       previous['avg_rent']) * 100)
                         trends['rent_trend'] = round(rent_change, 2)
                     
                     if latest['avg_dom'] and previous['avg_dom']:
-                        dom_change = ((latest['avg_dom'] - previous['avg_dom']) / previous['avg_dom']) * 100
+                        dom_change = (((latest['avg_dom'] - previous['avg_dom']) /
+                                      previous['avg_dom']) * 100)
                         trends['dom_trend'] = round(dom_change, 2)
                 
                 return trends
@@ -1451,6 +1597,41 @@ class DatabaseManager:
             prop.get('description', ''),
             json.dumps(prop) if isinstance(prop, dict) else '',
             prop.get('fetched_at', datetime.now().isoformat()),
+            datetime.now().isoformat()
+        )
+    
+    def _prepare_listing_data(self, listing: Dict[str, Any]) -> Tuple:
+        """Prepare listing data for database insertion."""
+        # Determine listing type based on source and data
+        listing_type = 'sale'  # Default
+        if 'rental' in listing.get('source', '').lower() or listing.get('rental_type'):
+            listing_type = 'rental'
+        
+        return (
+            listing.get('listing_id', listing.get('property_id', '')),  # Use listing_id if available
+            listing.get('property_id', ''),
+            listing.get('source', ''),
+            listing_type,
+            listing.get('address', ''),
+            listing.get('city', ''),
+            listing.get('state', ''),
+            listing.get('zip_code', ''),
+            listing.get('price'),
+            listing.get('bedrooms'),
+            listing.get('bathrooms'),
+            listing.get('square_feet'),
+            listing.get('lot_size'),
+            listing.get('year_built'),
+            listing.get('property_type', ''),
+            listing.get('listing_date', ''),
+            listing.get('days_on_market'),
+            listing.get('status', 'active'),  # Default to active
+            listing.get('url', ''),
+            listing.get('latitude'),
+            listing.get('longitude'),
+            listing.get('description', ''),
+            json.dumps(listing) if isinstance(listing, dict) else '',
+            listing.get('fetched_at', datetime.now().isoformat()),
             datetime.now().isoformat()
         )
     
@@ -1502,17 +1683,31 @@ class DatabaseManager:
             ''')
             
             # Create indexes
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_score ON deal_insights(overall_score DESC)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_type ON deal_insights(deal_type)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_zip ON deal_insights(zip_code)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_deal_insights_date ON deal_insights(analysis_date DESC)')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_deal_insights_score 
+                ON deal_insights(overall_score DESC)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_deal_insights_type 
+                ON deal_insights(deal_type)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_deal_insights_zip 
+                ON deal_insights(zip_code)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_deal_insights_date 
+                ON deal_insights(analysis_date DESC)
+            ''')
             
             conn.commit()
             logger.info("Deal analysis database tables created successfully")
     
-    def store_deal_analysis(self, analysis_id: str, property_data: Dict[str, Any], 
-                           avm_data: Optional[Dict[str, Any]], market_data: Optional[Dict[str, Any]],
-                           deal_score_data: Dict[str, Any], analysis_timestamp: datetime):
+    def store_deal_analysis(self, analysis_id: str, property_data: Dict[str, Any],
+                           avm_data: Optional[Dict[str, Any]],
+                           market_data: Optional[Dict[str, Any]],
+                           deal_score_data: Dict[str, Any],
+                           analysis_timestamp: datetime):
         """Store complete deal analysis results."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -1520,12 +1715,15 @@ class DatabaseManager:
             # Store in main analyses table
             cursor.execute('''
                 INSERT OR REPLACE INTO deal_analyses 
-                (analysis_id, property_address, property_data, avm_data, market_data, deal_score_data, analysis_timestamp)
+                (analysis_id, property_address, property_data, avm_data, 
+                 market_data, deal_score_data, analysis_timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 analysis_id, property_data.get('formattedAddress', ''),
-                json.dumps(property_data), json.dumps(avm_data) if avm_data else None,
-                json.dumps(market_data) if market_data else None, json.dumps(deal_score_data),
+                json.dumps(property_data),
+                json.dumps(avm_data) if avm_data else None,
+                json.dumps(market_data) if market_data else None,
+                json.dumps(deal_score_data),
                 analysis_timestamp.isoformat()
             ))
             
@@ -1537,9 +1735,12 @@ class DatabaseManager:
                  confidence, value_discount_pct, analysis_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                analysis_id, property_data.get('formattedAddress', ''), property_data.get('zipCode'),
-                property_data.get('propertyType'), property_data.get('bedrooms'), property_data.get('bathrooms'),
-                property_data.get('squareFootage'), property_data.get('price'), deal_score_data.get('estimated_value'),
+                analysis_id, property_data.get('formattedAddress', ''),
+                property_data.get('zipCode'),
+                property_data.get('propertyType'), property_data.get('bedrooms'),
+                property_data.get('bathrooms'),
+                property_data.get('squareFootage'), property_data.get('price'),
+                deal_score_data.get('estimated_value'),
                 deal_score_data.get('overall_score'), deal_score_data.get('deal_type'),
                 deal_score_data.get('confidence'), deal_score_data.get('value_discount_pct'),
                 analysis_timestamp.date().isoformat()
@@ -1547,21 +1748,24 @@ class DatabaseManager:
             
             conn.commit()
     
-    def get_best_deals(self, zip_code: Optional[str] = None, min_score: float = 70.0, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_best_deals(self, zip_code: Optional[str] = None,
+                      min_score: float = 70.0,
+                      limit: int = 20) -> List[Dict[str, Any]]:
         """Get the best deals from recent analyses."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            query = 'SELECT * FROM deal_insights WHERE overall_score >= ? AND analysis_date >= date("now", "-30 days")'
+            query = ('SELECT * FROM deal_insights WHERE overall_score >= ? '
+                    'AND analysis_date >= date("now", "-30 days")')
             params = [min_score]
             
             if zip_code:
                 query += ' AND zip_code = ?'
-                params.append(zip_code)
+                params.append(zip_code)  # type: ignore
             
             query += ' ORDER BY overall_score DESC LIMIT ?'
-            params.append(limit)
+            params.append(limit)  # type: ignore
             
             cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]

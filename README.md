@@ -1,6 +1,6 @@
 # Real Estate Data Analyzer
 
-A comprehensive Python scripting project for fetching, analyzing, and monitoring real estate data. This tool automatically gathers property listings from multiple sources, performs market analysis, generates visualizations, and sends notifications when properties matching your criteria are found.
+A comprehensive Python scripting project for fetching, analyzing, and monitoring real estate data. This tool automatically gathers listings from multiple sources, performs market analysis, generates visualizations, and sends notifications when properties matching your criteria are found.
 
 ## Quick Start
 

@@ -1,8 +1,8 @@
 """
-Flask Web Application for RentCast API Interaction
+Flask Web Application for Real Estate Deal Analysis
 
-This module provides a web interface for interacting with the RentCast API,
-allowing users to search properties, listings, get AVM values, and view market data.
+This module provides a streamlined web interface focused on real estate deal analysis,
+allowing users to search and analyze investment opportunities.
 """
 
 import logging
@@ -18,10 +18,6 @@ from pathlib import Path
 from src.api.rentcast_client import RentCastClient
 from src.config.config_manager import ConfigManager
 from src.core.database import DatabaseManager
-from src.schemas.rentcast_schemas import (
-    Property, PropertiesResponse, PropertyListing, ListingsResponse,
-    AVMValueResponse, AVMRentResponse, MarketStatistics
-)
 from src.api.rentcast_errors import RentCastAPIError, RentCastNoResultsError
 
 # Set up logging
@@ -52,7 +48,7 @@ def init_app():
         # Initialize RentCast client
         api_config = config_manager.get_api_config()
         rentcast_client = RentCastClient(
-            api_key=api_config.get('rentcast_api_key'),
+            api_key=api_config.get('rentcast_api_key', ''),
             base_url=api_config.get('rentcast_endpoint', 'https://api.rentcast.io/v1'),
             rate_limit=api_config.get('rentcast_rate_limit', 20)
         )
@@ -68,7 +64,7 @@ def init_app():
         raise
 
 
-def safe_convert_to_dict(obj) -> Dict[str, Any]:
+def safe_convert_to_dict(obj) -> Union[Dict[str, Any], List[Any], Any]:
     """Safely convert dataclass objects to dictionaries for JSON serialization."""
     if hasattr(obj, 'to_dict'):
         return obj.to_dict()
@@ -155,509 +151,60 @@ def generate_agent_description(deal: Dict[str, Any]) -> str:
             financial_highlights.append(f"positive ${cash_flow:,.0f}/month cash flow")
         elif cash_flow > 0:
             financial_highlights.append(f"${cash_flow:,.0f}/month cash flow")
-        elif cash_flow < 0:
-            financial_highlights.append(f"${abs(cash_flow):,.0f}/month negative cash flow")
             
         if financial_highlights:
-            description_parts.append(f"Features {' and '.join(financial_highlights)}.")
-            
-        # Value analysis
+            description_parts.append(f"featuring {' and '.join(financial_highlights)}.")
+        
+        # Investment details
+        investment_highlights = []
+        
         if asking_price and estimated_value:
-            value_diff_pct = ((estimated_value - asking_price) / asking_price) * 100
-            if value_diff_pct >= 10:
-                description_parts.append(f"💎 **UNDERVALUED** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
-            elif value_diff_pct >= 5:
-                description_parts.append(f"💰 **GOOD VALUE** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
-            elif value_diff_pct >= 0:
-                description_parts.append(f"✅ **FAIR VALUE** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
-            else:
-                description_parts.append(f"⚠️ **PREMIUM PRICING** - Listed at ${asking_price:,} vs estimated value of ${estimated_value:,} ({value_diff_pct:+.1f}%)")
-        elif asking_price:
-            description_parts.append(f"Listed at ${asking_price:,}")
-            
-        # Rental potential
+            equity_gain = estimated_value - asking_price
+            if equity_gain > 50000:
+                investment_highlights.append(f"immediate ${equity_gain:,.0f} equity gain")
+            elif equity_gain > 20000:
+                investment_highlights.append(f"${equity_gain:,.0f} potential equity")
+        
         if estimated_rent and asking_price:
-            monthly_yield = (estimated_rent / asking_price) * 100
-            if monthly_yield >= 1.5:
-                description_parts.append(f"🏠 **EXCELLENT RENTAL YIELD** - Estimated rent of ${estimated_rent:,}/month ({monthly_yield:.2f}% monthly yield)")
-            elif monthly_yield >= 1.0:
-                description_parts.append(f"🏠 **STRONG RENTAL POTENTIAL** - Estimated rent of ${estimated_rent:,}/month ({monthly_yield:.2f}% monthly yield)")
-            elif monthly_yield >= 0.8:
-                description_parts.append(f"🏠 **DECENT RENTAL INCOME** - Estimated rent of ${estimated_rent:,}/month ({monthly_yield:.2f}% monthly yield)")
-            elif estimated_rent:
-                description_parts.append(f"🏠 **RENTAL POTENTIAL** - Estimated rent of ${estimated_rent:,}/month")
-                
-        # Investment strategy
-        strategy_notes = []
-        if deal_type == 'flip':
-            strategy_notes.append("🔨 **FLIP CANDIDATE** - Ideal for renovation and resale")
-        elif deal_type == 'buy_and_hold':
-            strategy_notes.append("📈 **BUY & HOLD** - Perfect for long-term rental income")
-        elif deal_type == 'luxury_hold':
-            strategy_notes.append("💎 **LUXURY RENTAL** - High-end investment property")
-            
-        if cap_rate >= 8 and cash_flow >= 500:
-            strategy_notes.append("💰 **CASH COW** - Strong immediate returns")
-        elif score >= 85:
-            strategy_notes.append("⭐ **PORTFOLIO BUILDER** - Excellent addition to any investment portfolio")
-            
-        if strategy_notes:
-            description_parts.append(" ".join(strategy_notes))
-            
-        # Confidence and risk assessment
-        if confidence >= 0.9:
-            description_parts.append("🎯 **HIGH CONFIDENCE** - Very reliable data analysis")
-        elif confidence >= 0.8:
-            description_parts.append("✅ **RELIABLE DATA** - Good confidence in projections")
-        elif confidence >= 0.7:
-            description_parts.append("📊 **MODERATE CONFIDENCE** - Decent data reliability")
-        elif confidence > 0:
-            description_parts.append("⚠️ **LIMITED DATA** - Lower confidence in projections")
-            
-        # Final recommendation
-        if score >= 90 and cap_rate >= 8:
-            description_parts.append("🚀 **AGENT RECOMMENDATION: IMMEDIATE ACTION** - This is a rare find that won't last long!")
-        elif score >= 85:
-            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: HIGHLY RECOMMENDED** - Strong investment opportunity")
+            rent_to_price_ratio = (estimated_rent * 12) / asking_price if asking_price > 0 else 0
+            if rent_to_price_ratio >= 0.12:
+                investment_highlights.append(f"exceptional {rent_to_price_ratio:.1%} rent-to-price ratio")
+            elif rent_to_price_ratio >= 0.10:
+                investment_highlights.append(f"strong {rent_to_price_ratio:.1%} rent-to-price ratio")
+        
+        if investment_highlights:
+            description_parts.append(f"This property offers {', '.join(investment_highlights)}.")
+        
+        # Market context and recommendation
+        if confidence >= 90:
+            description_parts.append(f"🎯 **HIGH CONFIDENCE** ({confidence:.0f}%) - Data backed by comprehensive market analysis.")
+        elif confidence >= 80:
+            description_parts.append(f"📈 **STRONG CONFIDENCE** ({confidence:.0f}%) - Reliable data supports this opportunity.")
+        elif confidence >= 70:
+            description_parts.append(f"📊 **GOOD CONFIDENCE** ({confidence:.0f}%) - Solid data foundation.")
+        
+        # Call to action based on score
+        if score >= 85:
+            description_parts.append("⚡ **IMMEDIATE ACTION RECOMMENDED** - This exceptional deal won't last long in today's market.")
         elif score >= 80:
-            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: RECOMMENDED** - Solid investment choice")
+            description_parts.append("🏃 **QUICK EVALUATION SUGGESTED** - Strong fundamentals warrant serious consideration.")
         elif score >= 75:
-            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: CONSIDER** - Worth further analysis")
+            description_parts.append("📋 **WORTH INVESTIGATING** - Good opportunity for detailed due diligence.")
         else:
-            description_parts.append("👨‍💼 **AGENT RECOMMENDATION: PROCEED WITH CAUTION** - Requires careful due diligence")
-            
+            description_parts.append("📝 **REVIEW AND ANALYZE** - Consider alongside your investment criteria.")
+        
         return " ".join(description_parts)
         
     except Exception as e:
         logger.warning(f"Error generating agent description: {e}")
-        return "Investment opportunity with detailed analysis available. Contact agent for more information."
+        return f"Investment opportunity with {score:.1f}/100 score and {cap_rate:.1f}% cap rate."
 
 
+# Routes
 @app.route('/')
 def index():
-    """Main dashboard page."""
-    return render_template('index.html')
-
-
-@app.route('/properties')
-def properties_search():
-    """Properties search page."""
-    return render_template('properties_search.html')
-
-
-@app.route('/api/properties/search', methods=['POST'])
-def search_properties():
-    """API endpoint for searching properties."""
-    try:
-        data = request.get_json()
-        
-        # Extract search parameters
-        params = {}
-        
-        # Address search
-        if data.get('address'):
-            params['address'] = data['address']
-        
-        # Location search
-        if data.get('city'):
-            params['city'] = data['city']
-        if data.get('state'):
-            params['state'] = data['state']
-        if data.get('zipcode'):
-            params['zipcode'] = data['zipcode']
-        
-        # Geographical search
-        if data.get('latitude') and data.get('longitude'):
-            params['latitude'] = float(data['latitude'])
-            params['longitude'] = float(data['longitude'])
-        if data.get('radius'):
-            params['radius'] = float(data['radius'])
-        
-        # Property filters
-        if data.get('property_type'):
-            params['propertyType'] = data['property_type']
-        if data.get('bedrooms'):
-            params['bedrooms'] = int(data['bedrooms'])
-        if data.get('bathrooms'):
-            params['bathrooms'] = float(data['bathrooms'])
-        if data.get('min_sqft'):
-            params['minSquareFootage'] = int(data['min_sqft'])
-        if data.get('max_sqft'):
-            params['maxSquareFootage'] = int(data['max_sqft'])
-        if data.get('min_year_built'):
-            params['minYearBuilt'] = int(data['min_year_built'])
-        if data.get('max_year_built'):
-            params['maxYearBuilt'] = int(data['max_year_built'])
-        
-        # Pagination
-        offset = data.get('offset', 0)
-        limit = data.get('limit', 20)
-        if offset:
-            params['offset'] = offset
-        if limit:
-            params['limit'] = limit
-        
-        # Make API call
-        response = rentcast_client.search_properties(**params)
-        
-        # Convert response to dict for JSON serialization
-        result = safe_convert_to_dict(response)
-        
-        return jsonify({
-            'success': True,
-            'data': result,
-            'total_count': getattr(response, 'total_count', len(response.properties) if hasattr(response, 'properties') else 1)
-        })
-        
-    except RentCastNoResultsError:
-        return jsonify({
-            'success': True,
-            'data': {'properties': []},
-            'total_count': 0,
-            'message': 'No properties found matching your criteria'
-        })
-        
-    except RentCastAPIError as e:
-        logger.error(f"RentCast API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'recommendation': getattr(e, 'recommendation', 'Please check your search parameters and try again.')
-        }), 400
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in property search: {e}")
-        return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred. Please try again.'
-        }), 500
-
-
-@app.route('/listings')
-def listings_search():
-    """Listings search page."""
-    return render_template('listings_search.html')
-
-
-@app.route('/api/listings/search', methods=['POST'])
-def search_listings():
-    """API endpoint for searching listings (both sale and rental)."""
-    try:
-        data = request.get_json()
-        listing_type = data.get('listing_type', 'sale')  # 'sale' or 'rental'
-        
-        # Extract search parameters
-        params = {}
-        
-        # Location search
-        if data.get('city'):
-            params['city'] = data['city']
-        if data.get('state'):
-            params['state'] = data['state']
-        if data.get('zipcode'):
-            params['zipcode'] = data['zipcode']
-        
-        # Geographical search
-        if data.get('latitude') and data.get('longitude'):
-            params['latitude'] = float(data['latitude'])
-            params['longitude'] = float(data['longitude'])
-        if data.get('radius'):
-            params['radius'] = float(data['radius'])
-        
-        # Property filters
-        if data.get('property_type'):
-            params['propertyType'] = data['property_type']
-        if data.get('bedrooms'):
-            params['bedrooms'] = int(data['bedrooms'])
-        if data.get('bathrooms'):
-            params['bathrooms'] = float(data['bathrooms'])
-        if data.get('min_sqft'):
-            params['minSquareFootage'] = int(data['min_sqft'])
-        if data.get('max_sqft'):
-            params['maxSquareFootage'] = int(data['max_sqft'])
-        
-        # Price/rent filters
-        if listing_type == 'sale':
-            if data.get('min_price'):
-                params['minPrice'] = float(data['min_price'])
-            if data.get('max_price'):
-                params['maxPrice'] = float(data['max_price'])
-        else:  # rental
-            if data.get('min_rent'):
-                params['minRent'] = float(data['min_rent'])
-            if data.get('max_rent'):
-                params['maxRent'] = float(data['max_rent'])
-        
-        # Days on market filter
-        if data.get('max_days_on_market'):
-            params['maxDaysOnMarket'] = int(data['max_days_on_market'])
-        
-        # Pagination
-        offset = data.get('offset', 0)
-        limit = data.get('limit', 20)
-        if offset:
-            params['offset'] = offset
-        if limit:
-            params['limit'] = limit
-        
-        # Make API call based on listing type
-        if listing_type == 'sale':
-            response = rentcast_client.get_listings_sale(**params)
-        else:
-            response = rentcast_client.get_listings_rental_long_term(**params)
-        
-        # Convert response to dict for JSON serialization
-        result = safe_convert_to_dict(response)
-        
-        return jsonify({
-            'success': True,
-            'data': result,
-            'listing_type': listing_type
-        })
-        
-    except RentCastNoResultsError:
-        return jsonify({
-            'success': True,
-            'data': {'listings': []},
-            'total_count': 0,
-            'message': 'No listings found matching your criteria'
-        })
-        
-    except RentCastAPIError as e:
-        logger.error(f"RentCast API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'recommendation': getattr(e, 'recommendation', 'Please check your search parameters and try again.')
-        }), 400
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in listings search: {e}")
-        return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred. Please try again.'
-        }), 500
-
-
-@app.route('/avm')
-def avm_search():
-    """AVM (Automated Valuation Model) search page."""
-    return render_template('avm_search.html')
-
-
-@app.route('/api/avm/value', methods=['POST'])
-def get_avm_value():
-    """API endpoint for getting property value estimates."""
-    try:
-        data = request.get_json()
-        
-        # Extract parameters
-        params = {}
-        
-        if data.get('address'):
-            params['address'] = data['address']
-        if data.get('zipcode'):
-            params['zipcode'] = data['zipcode']
-        if data.get('latitude') and data.get('longitude'):
-            params['latitude'] = float(data['latitude'])
-            params['longitude'] = float(data['longitude'])
-        
-        # Property characteristics for better estimates
-        if data.get('bedrooms'):
-            params['bedrooms'] = int(data['bedrooms'])
-        if data.get('bathrooms'):
-            params['bathrooms'] = float(data['bathrooms'])
-        if data.get('square_footage'):
-            params['squareFootage'] = int(data['square_footage'])
-        if data.get('property_type'):
-            params['propertyType'] = data['property_type']
-        
-        # Comparables options
-        if data.get('comparables_count'):
-            params['compCount'] = int(data['comparables_count'])
-        
-        # Make API call
-        response = rentcast_client.get_avm_value(**params)
-        
-        # Convert response to dict for JSON serialization
-        result = safe_convert_to_dict(response)
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except RentCastNoResultsError:
-        return jsonify({
-            'success': False,
-            'error': 'No value estimate available for this property',
-            'message': 'Unable to generate a value estimate. This could be due to insufficient comparable data in the area.'
-        })
-        
-    except RentCastAPIError as e:
-        logger.error(f"RentCast API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'recommendation': getattr(e, 'recommendation', 'Please check your property details and try again.')
-        }), 400
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in AVM value request: {e}")
-        return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred. Please try again.'
-        }), 500
-
-
-@app.route('/api/avm/rent', methods=['POST'])
-def get_avm_rent():
-    """API endpoint for getting rental estimates."""
-    try:
-        data = request.get_json()
-        
-        # Extract parameters
-        params = {}
-        
-        if data.get('address'):
-            params['address'] = data['address']
-        if data.get('zipcode'):
-            params['zipcode'] = data['zipcode']
-        if data.get('latitude') and data.get('longitude'):
-            params['latitude'] = float(data['latitude'])
-            params['longitude'] = float(data['longitude'])
-        
-        # Property characteristics for better estimates
-        if data.get('bedrooms'):
-            params['bedrooms'] = int(data['bedrooms'])
-        if data.get('bathrooms'):
-            params['bathrooms'] = float(data['bathrooms'])
-        if data.get('square_footage'):
-            params['squareFootage'] = int(data['square_footage'])
-        if data.get('property_type'):
-            params['propertyType'] = data['property_type']
-        
-        # Comparables options
-        if data.get('comparables_count'):
-            params['compCount'] = int(data['comparables_count'])
-        
-        # Make API call
-        response = rentcast_client.get_avm_rent_long_term(**params)
-        
-        # Convert response to dict for JSON serialization
-        result = safe_convert_to_dict(response)
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except RentCastNoResultsError:
-        return jsonify({
-            'success': False,
-            'error': 'No rental estimate available for this property',
-            'message': 'Unable to generate a rental estimate. This could be due to insufficient comparable rental data in the area.'
-        })
-        
-    except RentCastAPIError as e:
-        logger.error(f"RentCast API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'recommendation': getattr(e, 'recommendation', 'Please check your property details and try again.')
-        }), 400
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in AVM rent request: {e}")
-        return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred. Please try again.'
-        }), 500
-
-
-@app.route('/markets')
-def markets_search():
-    """Market statistics search page."""
-    return render_template('markets_search.html')
-
-
-@app.route('/api/markets/search', methods=['POST'])
-def search_markets():
-    """API endpoint for getting market statistics."""
-    try:
-        data = request.get_json()
-        
-        # Extract parameters
-        params = {}
-        
-        # Location parameters
-        if data.get('city'):
-            params['city'] = data['city']
-        if data.get('state'):
-            params['state'] = data['state']
-        if data.get('zipcode'):
-            params['zipcode'] = data['zipcode']
-        
-        # Make API call
-        response = rentcast_client.get_markets(**params)
-        
-        # Convert response to dict for JSON serialization
-        result = safe_convert_to_dict(response)
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except RentCastNoResultsError:
-        return jsonify({
-            'success': False,
-            'error': 'No market data available for this location',
-            'message': 'Market statistics are not available for the specified location.'
-        })
-        
-    except RentCastAPIError as e:
-        logger.error(f"RentCast API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'recommendation': getattr(e, 'recommendation', 'Please check your location and try again.')
-        }), 400
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in markets request: {e}")
-        return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred. Please try again.'
-        }), 500
-
-
-@app.route('/property/<property_id>')
-def property_details(property_id):
-    """Property details page."""
-    try:
-        property_data = rentcast_client.get_property_details(property_id)
-        return render_template('property_details.html', property=safe_convert_to_dict(property_data))
-    except RentCastAPIError as e:
-        flash(f"Error loading property details: {e}", 'error')
-        return redirect(url_for('properties_search'))
-
-
-@app.route('/listing/<listing_type>/<listing_id>')
-def listing_details(listing_type, listing_id):
-    """Listing details page."""
-    try:
-        if listing_type == 'sale':
-            listing_data = rentcast_client.get_listing_sale_details(listing_id)
-        else:
-            listing_data = rentcast_client.get_listing_rental_long_term_details(listing_id)
-        
-        return render_template('listing_details.html', 
-                             listing=safe_convert_to_dict(listing_data),
-                             listing_type=listing_type)
-    except RentCastAPIError as e:
-        flash(f"Error loading listing details: {e}", 'error')
-        return redirect(url_for('listings_search'))
+    """Redirect to deals search page."""
+    return redirect(url_for('deals_search'))
 
 
 @app.route('/deals')

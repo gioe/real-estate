@@ -1,28 +1,25 @@
 """
 Data Fetcher Module
 
-This module handles fetching real estate data from various APIs and sources.
+This module handles fetching real estate listings data from various APIs and sources.
 Supports multiple data sources including MLS, Zillow, Redfin, and custom APIs.
 Includes comprehensive pagination support for API endpoints and structured search queries.
+Focuses on active market listings (sales and rentals) rather than static property data.
 """
 
-import requests
-import asyncio
-import aiohttp
 import logging
-from typing import Dict, List, Optional, Any, Generator, Tuple, Union
-from datetime import datetime, timedelta
+import requests
 import time
-import json
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Dict, List, Optional, Any, Generator, Union
 
 from ..api.rentcast_client import RentCastClient, RentCastClientError
 from ..api.http_client import HTTPClientError
 from ..schemas.rentcast_schemas import PropertiesResponse, ListingsResponse
 from .search_queries import (
-    SearchCriteria, SpecificAddressSearch, LocationSearch, GeographicalAreaSearch,
-    SearchQueryBuilder, search_by_address, search_by_location, search_by_coordinates,
-    search_around_address, SearchType, PropertyType
+    SearchCriteria, SearchQueryBuilder, search_by_address, 
+    search_by_location, search_by_coordinates, search_around_address
 )
 
 logger = logging.getLogger(__name__)
@@ -52,8 +49,9 @@ class PaginationManager:
         self.default_limit = default_limit
         self.max_limit = max_limit
     
-    def paginate_request(self, client: RentCastClient, endpoint: str, 
-                        params: Dict[str, Any], max_pages: Optional[int] = None) -> Generator[APIResponse, None, None]:
+    def paginate_request(self, client: RentCastClient, endpoint: str,
+                        params: Dict[str, Any],
+                        max_pages: Optional[int] = None) -> Generator[APIResponse, None, None]:
         """
         Generator that yields paginated API responses.
         
@@ -80,7 +78,8 @@ class PaginationManager:
                 })
                 
                 # Make API request
-                logger.info(f"Fetching page {pages_fetched + 1} with offset {offset}, limit {limit}")
+                logger.info(f"Fetching page {pages_fetched + 1} with offset "
+                           f"{offset}, limit {limit}")
                 
                 response: Union[PropertiesResponse, ListingsResponse, Any]
                 
@@ -161,8 +160,9 @@ class PaginationManager:
                 logger.error(f"Unexpected error during pagination: {str(e)}")
                 break
     
-    def fetch_all_pages(self, client: RentCastClient, endpoint: str, 
-                       params: Dict[str, Any], max_pages: Optional[int] = None) -> List[Dict[str, Any]]:
+    def fetch_all_pages(self, client: RentCastClient, endpoint: str,
+                       params: Dict[str, Any],
+                       max_pages: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Fetch all pages and return combined results.
         
@@ -190,7 +190,7 @@ class PaginationManager:
 
 
 class RealEstateDataFetcher:
-    """Main class for fetching real estate data from various sources."""
+    """Main class for fetching real estate listings data from various sources."""
     
     def __init__(self, api_config: Dict[str, Any]):
         """
@@ -214,102 +214,37 @@ class RealEstateDataFetcher:
         Fetch data from all configured sources.
         
         Returns:
-            List of property dictionaries
+            List of listing dictionaries
         """
-        all_properties = []
+        all_listings = []
         
         try:
             # Fetch from each configured source
             if self.api_config.get('rentcast_enabled', False):
                 rentcast_data = self.fetch_rentcast_data()
-                all_properties.extend(rentcast_data)
-                
-            if self.api_config.get('zillow_enabled', False):
-                zillow_data = self.fetch_zillow_data()
-                all_properties.extend(zillow_data)
-                
-            if self.api_config.get('redfin_enabled', False):
-                redfin_data = self.fetch_redfin_data()
-                all_properties.extend(redfin_data)
-                
-            if self.api_config.get('mls_enabled', False):
-                mls_data = self.fetch_mls_data()
-                all_properties.extend(mls_data)
-                
-            if self.api_config.get('custom_apis'):
-                for api_name, api_config in self.api_config['custom_apis'].items():
-                    custom_data = self.fetch_custom_api_data(api_name, api_config)
-                    all_properties.extend(custom_data)
+                all_listings.extend(rentcast_data)
+                            
+            # Remove duplicates based on listing ID, address, or property ID
+            unique_listings = self._remove_duplicates(all_listings)
+            logger.info(f"Fetched {len(unique_listings)} unique listings "
+                       f"from {len(all_listings)} total")
             
-            # Remove duplicates based on address or property ID
-            unique_properties = self._remove_duplicates(all_properties)
-            logger.info(f"Fetched {len(unique_properties)} unique properties from {len(all_properties)} total")
-            
-            return unique_properties
+            return unique_listings
             
         except Exception as e:
             logger.error(f"Error fetching data from sources: {str(e)}")
             return []
     
-    def fetch_zillow_data(self) -> List[Dict[str, Any]]:
-        """
-        Fetch data from Zillow API.
-        
-        Returns:
-            List of property dictionaries from Zillow
-        """
-        logger.info("Fetching data from Zillow")
-        properties = []
-        
-        try:
-            # This is a placeholder implementation
-            # In reality, you'd need to use Zillow's API or web scraping
-            # Note: Zillow's API access is restricted
-            
-            api_key = self.api_config.get('zillow_api_key')
-            if not api_key:
-                logger.warning("Zillow API key not configured")
-                return []
-            
-            # Example implementation for a hypothetical Zillow API
-            search_params = self.api_config.get('zillow_search_params', {})
-            
-            for location in search_params.get('locations', []):
-                self._check_rate_limit('zillow')
-                
-                url = f"{self.api_config.get('zillow_endpoint', '')}/search"
-                params = {
-                    'location': location,
-                    'api_key': api_key,
-                    'status': 'for_sale',
-                    'limit': 100
-                }
-                
-                response = self.session.get(url, params=params, timeout=30)
-                response.raise_for_status()
-                
-                data = response.json()
-                if 'properties' in data:
-                    for prop in data['properties']:
-                        normalized_prop = self._normalize_zillow_property(prop)
-                        properties.append(normalized_prop)
-                        
-                time.sleep(1)  # Rate limiting
-                
-        except Exception as e:
-            logger.error(f"Error fetching Zillow data: {str(e)}")
-            
-        return properties
-    
     def fetch_rentcast_data(self) -> List[Dict[str, Any]]:
         """
-        Fetch data from RentCast API using the dedicated client.
+        Fetch data from RentCast API using zip codes configuration.
+        Searches for both sales and rental listings based on configuration.
         
         Returns:
-            List of property dictionaries from RentCast
+            List of listing dictionaries from RentCast listings
         """
-        logger.info("Fetching data from RentCast")
-        properties = []
+        logger.info("Fetching listings data from RentCast using zip codes configuration")
+        listings = []
         
         try:
             api_key = self.api_config.get('rentcast_api_key')
@@ -319,7 +254,14 @@ class RealEstateDataFetcher:
             
             endpoint = self.api_config.get('rentcast_endpoint', 'https://api.rentcast.io/v1')
             rate_limit = self.api_config.get('rentcast_rate_limit', 100)
-            search_params = self.api_config.get('rentcast_search_params', {})
+            
+            # Get zip codes configuration from api_config
+            zip_codes = self.api_config.get('zip_codes', [])
+            zip_processing = self.api_config.get('zip_code_processing', {})
+            
+            if not zip_codes:
+                logger.warning("No zip codes configured for data fetching")
+                return []
             
             # Initialize RentCast client
             with RentCastClient(
@@ -333,41 +275,95 @@ class RealEstateDataFetcher:
                     logger.error("RentCast API connection test failed")
                     return []
                 
-                # Search for properties based on configured locations
-                locations = search_params.get('locations', [])
-                property_types = search_params.get('property_types', [])
-                limit_per_location = search_params.get('limit', 50)
+                # Extract configuration parameters
+                listings_per_zip = zip_processing.get('listings_per_zip', zip_processing.get('properties_per_zip', 100))  # Backward compatibility
+                fetch_sales = zip_processing.get('fetch_sales', True)
+                fetch_rentals = zip_processing.get('fetch_rentals', True)
+                delay_between_zips = zip_processing.get('delay_between_zips', 2)
+                property_types = zip_processing.get('property_types', ['Single Family', 'Condo'])
+                filters = zip_processing.get('filters', {})
                 
-                for location in locations:
-                    # Parse location string (e.g., "Austin, TX")
-                    location_parts = [part.strip() for part in location.split(',')]
+                # Process each zip code
+                for zip_code in zip_codes:
+                    logger.info(f"Processing zip code: {zip_code}")
                     
-                    search_kwargs = {
-                        'limit': limit_per_location
-                    }
-                    
-                    if len(location_parts) >= 2:
-                        search_kwargs['city'] = location_parts[0]
-                        search_kwargs['state'] = location_parts[1]
-                    elif len(location_parts) == 1:
-                        # Could be city name or ZIP code
-                        if location_parts[0].isdigit():
-                            search_kwargs['zip_code'] = location_parts[0]
-                        else:
-                            search_kwargs['city'] = location_parts[0]
-                    
-                    # Search for each property type if specified
-                    if property_types:
+                    # Fetch sales listings if enabled
+                    if fetch_sales:
                         for prop_type in property_types:
-                            search_kwargs['property_type'] = prop_type
+                            # Create search kwargs for sales listings endpoint (same parameter names as rental)
+                            sales_search_kwargs = {
+                                'zipcode': zip_code,  # Note: zipcode (no underscore) for listings endpoint
+                                'propertyType': prop_type,  # Note: propertyType (camelCase) for listings endpoint
+                                'limit': listings_per_zip
+                            }
+                            
+                            # Apply additional filters with correct parameter names for listings endpoint
+                            if filters.get('min_beds'):
+                                sales_search_kwargs['bedrooms'] = filters['min_beds']
+                            if filters.get('min_baths'):
+                                sales_search_kwargs['bathrooms'] = filters['min_baths']
+                            if filters.get('max_price'):
+                                sales_search_kwargs['maxPrice'] = filters['max_price']
+                            
                             try:
-                                logger.info(f"Searching RentCast: {location}, {prop_type}")
-                                response = client.search_properties(**search_kwargs)
+                                logger.info(f"Searching sales listings in {zip_code} for {prop_type}")
+                                response = client.get_listings_sale(**sales_search_kwargs)
                                 
-                                # Process response data - handle PropertiesResponse object
+                                # Process response data - handle ListingsResponse object
+                                listing_data = []
+                                if hasattr(response, 'listings'):
+                                    # ListingsResponse object
+                                    listing_data = response.listings
+                                elif isinstance(response, dict) and 'listings' in response:
+                                    # Dict response
+                                    listing_data = response['listings']
+                                elif isinstance(response, list):
+                                    # Direct list
+                                    listing_data = response
+                                
+                                if listing_data:
+                                    for listing in listing_data:
+                                        # Convert listing object to dict if needed
+                                        if hasattr(listing, 'to_dict'):
+                                            listing_dict: Dict[str, Any] = listing.to_dict()
+                                        else:
+                                            listing_dict = listing  # type: ignore
+                                        normalized_listing = self._normalize_rentcast_listing(
+                                            listing_dict)
+                                        listings.append(normalized_listing)
+                                        
+                            except RentCastClientError as e:
+                                logger.error(f"RentCast sales listings error for {zip_code}, "
+                                           f"{prop_type}: {e}")
+                                continue
+                    
+                    # Fetch rental listings if enabled
+                    if fetch_rentals:
+                        for prop_type in property_types:
+                            # Create separate search kwargs for rental endpoint (different parameter names)
+                            rental_search_kwargs = {
+                                'zipcode': zip_code,  # Note: zipcode (no underscore) for rental endpoint
+                                'propertyType': prop_type,  # Note: propertyType (camelCase) for rental endpoint
+                                'limit': listings_per_zip
+                            }
+                            
+                            # Apply additional filters with correct parameter names for rental endpoint
+                            if filters.get('min_beds'):
+                                rental_search_kwargs['bedrooms'] = filters['min_beds']
+                            if filters.get('min_baths'):
+                                rental_search_kwargs['bathrooms'] = filters['min_baths']
+                            if filters.get('max_price'):
+                                rental_search_kwargs['maxRent'] = filters['max_price']
+                            
+                            try:
+                                logger.info(f"Searching rentals in {zip_code} for {prop_type}")
+                                # Use listings endpoint for rentals
+                                response = client.get_listings_rental_long_term(**rental_search_kwargs)
+                                
+                                # Process response - rental listings endpoint returns PropertiesResponse
                                 property_data = []
                                 if hasattr(response, 'properties'):
-                                    # PropertiesResponse object
+                                    # PropertiesResponse object (what rental listings endpoint returns)
                                     property_data = response.properties
                                 elif isinstance(response, dict) and 'properties' in response:
                                     # Dict response
@@ -377,269 +373,81 @@ class RealEstateDataFetcher:
                                     property_data = response
                                 
                                 if property_data:
-                                    for prop in property_data:
-                                        # Convert Property object to dict if needed
-                                        prop_dict = prop.to_dict() if hasattr(prop, 'to_dict') else prop
-                                        normalized_prop = self._normalize_rentcast_property(prop_dict)
-                                        properties.append(normalized_prop)
+                                    for listing in property_data:
+                                        # Convert listing object to dict if needed
+                                        if hasattr(listing, 'to_dict'):
+                                            listing_dict: Dict[str, Any] = listing.to_dict()
+                                        else:
+                                            listing_dict = listing  # type: ignore
+                                        normalized_listing = self._normalize_rentcast_listing(
+                                            listing_dict)
+                                        listings.append(normalized_listing)
                                         
                             except RentCastClientError as e:
-                                logger.error(f"RentCast search error for {location}, {prop_type}: {e}")
+                                logger.error(f"RentCast rental search error for {zip_code}, "
+                                           f"{prop_type}: {e}")
                                 continue
-                    else:
-                        # Search without property type filter
-                        try:
-                            logger.info(f"Searching RentCast: {location}")
-                            response = client.search_properties(**search_kwargs)
-                            
-                            # Process response data - handle PropertiesResponse object
-                            property_data = []
-                            if hasattr(response, 'properties'):
-                                # PropertiesResponse object
-                                property_data = response.properties
-                            elif isinstance(response, dict) and 'properties' in response:
-                                # Dict response
-                                property_data = response['properties']
-                            elif isinstance(response, list):
-                                # Direct list
-                                property_data = response
-                            
-                            if property_data:
-                                for prop in property_data:
-                                    # Convert Property object to dict if needed
-                                    prop_dict = prop.to_dict() if hasattr(prop, 'to_dict') else prop
-                                    normalized_prop = self._normalize_rentcast_property(prop_dict)
-                                    properties.append(normalized_prop)
-                                    
-                        except RentCastClientError as e:
-                            logger.error(f"RentCast search error for {location}: {e}")
-                            continue
+                    
+                    # Add delay between zip code processing
+                    if delay_between_zips > 0:
+                        logger.info(f"Waiting {delay_between_zips} seconds before next zip code")
+                        time.sleep(delay_between_zips)
                 
-                logger.info(f"Successfully fetched {len(properties)} properties from RentCast")
+                logger.info(f"Successfully fetched {len(listings)} listings from RentCast")
                 
         except Exception as e:
             logger.error(f"Error fetching RentCast data: {str(e)}")
             
-        return properties
-    
-    def fetch_redfin_data(self) -> List[Dict[str, Any]]:
-        """
-        Fetch data from Redfin API.
-        
-        Returns:
-            List of property dictionaries from Redfin
-        """
-        logger.info("Fetching data from Redfin")
-        properties = []
-        
-        try:
-            # Placeholder implementation
-            # Redfin has limited public API access
-            api_config = self.api_config.get('redfin_config', {})
-            
-            # Example implementation
-            logger.info("Redfin data fetching not implemented - placeholder")
-            
-        except Exception as e:
-            logger.error(f"Error fetching Redfin data: {str(e)}")
-            
-        return properties
-    
-    def fetch_mls_data(self) -> List[Dict[str, Any]]:
-        """
-        Fetch data from MLS API.
-        
-        Returns:
-            List of property dictionaries from MLS
-        """
-        logger.info("Fetching data from MLS")
-        properties = []
-        
-        try:
-            mls_config = self.api_config.get('mls_config', {})
-            api_key = mls_config.get('api_key')
-            
-            if not api_key:
-                logger.warning("MLS API key not configured")
-                return []
-            
-            # Example MLS API implementation
-            url = mls_config.get('endpoint', '')
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            search_params = mls_config.get('search_params', {})
-            
-            self._check_rate_limit('mls')
-            response = self.session.get(url, headers=headers, params=search_params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            if 'listings' in data:
-                for listing in data['listings']:
-                    normalized_prop = self._normalize_mls_property(listing)
-                    properties.append(normalized_prop)
-                    
-        except Exception as e:
-            logger.error(f"Error fetching MLS data: {str(e)}")
-            
-        return properties
-    
-    def fetch_custom_api_data(self, api_name: str, api_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Fetch data from a custom API source.
-        
-        Args:
-            api_name: Name of the custom API
-            api_config: Configuration for the custom API
-            
-        Returns:
-            List of property dictionaries from the custom API
-        """
-        logger.info(f"Fetching data from custom API: {api_name}")
-        properties = []
-        
-        try:
-            url = api_config.get('endpoint')
-            if not url:
-                logger.warning(f"No endpoint configured for custom API: {api_name}")
-                return []
-                
-            headers = api_config.get('headers', {})
-            params = api_config.get('params', {})
-            
-            self._check_rate_limit(api_name)
-            response = self.session.get(url, headers=headers, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # Apply custom data transformation if specified
-            transform_func = api_config.get('transform_function')
-            if transform_func:
-                # This would need to be implemented based on specific requirements
-                pass
-            else:
-                # Default transformation
-                properties_key = api_config.get('properties_key', 'properties')
-                if properties_key in data:
-                    for prop in data[properties_key]:
-                        normalized_prop = self._normalize_custom_property(prop, api_config)
-                        properties.append(normalized_prop)
-                        
-        except Exception as e:
-            logger.error(f"Error fetching data from {api_name}: {str(e)}")
-            
-        return properties
-    
-    def _normalize_zillow_property(self, prop: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize Zillow property data to standard format."""
-        return {
-            'source': 'zillow',
-            'property_id': str(prop.get('zpid', '')),
-            'address': prop.get('address', ''),
-            'city': prop.get('city', ''),
-            'state': prop.get('state', ''),
-            'zip_code': prop.get('zipcode', ''),
-            'price': prop.get('price'),
-            'bedrooms': prop.get('bedrooms'),
-            'bathrooms': prop.get('bathrooms'),
-            'square_feet': prop.get('livingArea'),
-            'lot_size': prop.get('lotAreaValue'),
-            'year_built': prop.get('yearBuilt'),
-            'property_type': prop.get('homeType', ''),
-            'listing_date': prop.get('datePosted'),
-            'days_on_market': prop.get('daysOnZillow'),
-            'url': prop.get('detailUrl', ''),
-            'latitude': prop.get('latitude'),
-            'longitude': prop.get('longitude'),
-            'fetched_at': datetime.now().isoformat()
-        }
-    
-    def _normalize_mls_property(self, prop: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize MLS property data to standard format."""
-        return {
-            'source': 'mls',
-            'property_id': str(prop.get('ListingId', '')),
-            'address': prop.get('UnparsedAddress', ''),
-            'city': prop.get('City', ''),
-            'state': prop.get('StateOrProvince', ''),
-            'zip_code': prop.get('PostalCode', ''),
-            'price': prop.get('ListPrice'),
-            'bedrooms': prop.get('BedroomsTotal'),
-            'bathrooms': prop.get('BathroomsTotal'),
-            'square_feet': prop.get('LivingArea'),
-            'lot_size': prop.get('LotSizeSquareFeet'),
-            'year_built': prop.get('YearBuilt'),
-            'property_type': prop.get('PropertyType', ''),
-            'listing_date': prop.get('OnMarketDate'),
-            'days_on_market': prop.get('DaysOnMarket'),
-            'url': prop.get('VirtualTourURLUnbranded', ''),
-            'latitude': prop.get('Latitude'),
-            'longitude': prop.get('Longitude'),
-            'fetched_at': datetime.now().isoformat()
-        }
-    
-    def _normalize_rentcast_property(self, prop: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize RentCast property data to standard format."""
+        return listings
+
+    def _normalize_rentcast_listing(self, listing: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize RentCast listing data to standard format."""
         return {
             'source': 'rentcast',
-            'property_id': str(prop.get('id', prop.get('propertyId', ''))),
-            'address': prop.get('address', prop.get('formattedAddress', '')),
-            'city': prop.get('city', ''),
-            'state': prop.get('state', ''),
-            'zip_code': prop.get('zipCode', prop.get('zip', '')),
-            'price': prop.get('price', prop.get('listPrice', prop.get('rent'))),
-            'bedrooms': prop.get('bedrooms', prop.get('beds')),
-            'bathrooms': prop.get('bathrooms', prop.get('baths')),
-            'square_feet': prop.get('squareFootage', prop.get('sqft')),
-            'lot_size': prop.get('lotSize'),
-            'year_built': prop.get('yearBuilt'),
-            'property_type': prop.get('propertyType', ''),
-            'listing_date': prop.get('listDate', prop.get('lastSeenDate')),
-            'days_on_market': prop.get('daysOnMarket'),
-            'url': prop.get('url', ''),
-            'latitude': prop.get('latitude', prop.get('lat')),
-            'longitude': prop.get('longitude', prop.get('lng')),
+            'listing_id': str(listing.get('id', listing.get('listingId', ''))),
+            'property_id': str(listing.get('propertyId', listing.get('property_id', ''))),
+            'address': listing.get('address', listing.get('formattedAddress', '')),
+            'city': listing.get('city', ''),
+            'state': listing.get('state', ''),
+            'zip_code': listing.get('zipCode', listing.get('zip', '')),
+            'price': listing.get('price', listing.get('listPrice', listing.get('rent'))),
+            'bedrooms': listing.get('bedrooms', listing.get('beds')),
+            'bathrooms': listing.get('bathrooms', listing.get('baths')),
+            'square_feet': listing.get('squareFootage', listing.get('sqft')),
+            'lot_size': listing.get('lotSize'),
+            'year_built': listing.get('yearBuilt'),
+            'property_type': listing.get('propertyType', ''),
+            'listing_date': listing.get('listDate', listing.get('lastSeenDate')),
+            'listing_type': listing.get('listingType', 'unknown'),  # sale, rental, etc.
+            'status': listing.get('status', 'active'),
+            'days_on_market': listing.get('daysOnMarket'),
+            'mls_number': listing.get('mlsNumber', ''),
+            'url': listing.get('url', ''),
+            'latitude': listing.get('latitude', listing.get('lat')),
+            'longitude': listing.get('longitude', listing.get('lng')),
             'fetched_at': datetime.now().isoformat()
         }
     
-    def _normalize_custom_property(self, prop: Dict[str, Any], api_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize custom API property data to standard format."""
-        field_mapping = api_config.get('field_mapping', {})
-        
-        normalized = {
-            'source': api_config.get('source_name', 'custom'),
-            'fetched_at': datetime.now().isoformat()
-        }
-        
-        # Map fields according to configuration
-        for standard_field, source_field in field_mapping.items():
-            if source_field in prop:
-                normalized[standard_field] = prop[source_field]
-        
-        return normalized
-    
-    def _remove_duplicates(self, properties: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Remove duplicate properties based on address or property ID."""
+    def _remove_duplicates(self, listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate listings based on listing ID, address, or property ID."""
         seen = set()
-        unique_properties = []
+        unique_listings = []
         
-        for prop in properties:
-            # Create a unique identifier
+        for listing in listings:
+            # Create a unique identifier using multiple possible keys
             identifier = (
-                prop.get('address', '').lower(),
-                prop.get('city', '').lower(),
-                prop.get('zip_code', '')
+                listing.get('listing_id', ''),
+                listing.get('address', '').lower(),
+                listing.get('city', '').lower(),
+                listing.get('zip_code', ''),
+                listing.get('property_id', '')
             )
             
             if identifier not in seen:
                 seen.add(identifier)
-                unique_properties.append(prop)
+                unique_listings.append(listing)
         
-        return unique_properties
+        return unique_listings
     
     def _check_rate_limit(self, api_name: str) -> None:
         """Check and enforce rate limits for API calls."""
@@ -660,7 +468,8 @@ class RealEstateDataFetcher:
         
         if rate_limit_info['calls'] >= max_calls:
             sleep_time = rate_limit_info['reset_time'] - now
-            logger.info(f"Rate limit reached for {api_name}, sleeping for {sleep_time:.1f} seconds")
+            logger.info(f"Rate limit reached for {api_name}, "
+                       f"sleeping for {sleep_time:.1f} seconds")
             time.sleep(sleep_time)
             rate_limit_info['calls'] = 0
             rate_limit_info['reset_time'] = time.time() + 60
@@ -669,7 +478,7 @@ class RealEstateDataFetcher:
 
     # Paginated fetch methods
     
-    def fetch_properties_paginated(self, search_params: Dict[str, Any], 
+    def fetch_properties_paginated(self, search_params: Dict[str, Any],
                                   max_pages: Optional[int] = None) -> Generator[APIResponse, None, None]:
         """
         Fetch properties with pagination support.
@@ -712,7 +521,7 @@ class RealEstateDataFetcher:
         except Exception as e:
             logger.error(f"Error in paginated property fetch: {str(e)}")
     
-    def fetch_listings_paginated(self, search_params: Dict[str, Any], 
+    def fetch_listings_paginated(self, search_params: Dict[str, Any],
                                 listing_type: str = 'sale',
                                 max_pages: Optional[int] = None) -> Generator[APIResponse, None, None]:
         """
@@ -766,7 +575,7 @@ class RealEstateDataFetcher:
         except Exception as e:
             logger.error(f"Error in paginated listing fetch: {str(e)}")
     
-    def fetch_all_properties_paginated(self, search_params: Dict[str, Any], 
+    def fetch_all_properties_paginated(self, search_params: Dict[str, Any],
                                       max_pages: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Fetch all properties using pagination and return combined results.
@@ -788,7 +597,7 @@ class RealEstateDataFetcher:
         logger.info(f"Paginated fetch complete. Total properties: {len(all_properties)}")
         return all_properties
     
-    def fetch_all_listings_paginated(self, search_params: Dict[str, Any], 
+    def fetch_all_listings_paginated(self, search_params: Dict[str, Any],
                                     listing_type: str = 'sale',
                                     max_pages: Optional[int] = None) -> List[Dict[str, Any]]:
         """
@@ -863,7 +672,7 @@ class RealEstateDataFetcher:
             logger.error(f"Error in structured property search: {str(e)}")
             return []
     
-    def search_listings_structured(self, search_criteria: SearchCriteria, 
+    def search_listings_structured(self, search_criteria: SearchCriteria,
                                   listing_type: str = 'sale') -> List[Dict[str, Any]]:
         """
         Search for listings using structured search criteria.
@@ -933,8 +742,10 @@ class RealEstateDataFetcher:
         search_criteria = search_by_address(address, **kwargs)
         return self.search_properties_structured(search_criteria)
     
-    def search_by_location(self, city: Optional[str] = None, state: Optional[str] = None,
-                          zip_code: Optional[str] = None, **kwargs) -> List[Dict[str, Any]]:
+    def search_by_location(self, city: Optional[str] = None,
+                          state: Optional[str] = None,
+                          zip_code: Optional[str] = None,
+                          **kwargs) -> List[Dict[str, Any]]:
         """
         Search for properties in a specific location.
         
@@ -947,10 +758,12 @@ class RealEstateDataFetcher:
         Returns:
             List of property dictionaries matching the location
         """
-        search_criteria = search_by_location(city=city, state=state, zip_code=zip_code, **kwargs)
+        search_criteria = search_by_location(city=city, state=state,
+                                             zip_code=zip_code, **kwargs)
         return self.search_properties_structured(search_criteria)
     
-    def search_by_coordinates(self, latitude: float, longitude: float, radius: float = 5.0,
+    def search_by_coordinates(self, latitude: float, longitude: float,
+                             radius: float = 5.0,
                              **kwargs) -> List[Dict[str, Any]]:
         """
         Search for properties within a radius of coordinates.
@@ -964,11 +777,12 @@ class RealEstateDataFetcher:
         Returns:
             List of property dictionaries within the radius
         """
-        search_criteria = search_by_coordinates(latitude=latitude, longitude=longitude, 
+        search_criteria = search_by_coordinates(latitude=latitude,
+                                               longitude=longitude,
                                                radius=radius, **kwargs)
         return self.search_properties_structured(search_criteria)
     
-    def search_around_address(self, address: str, radius: float = 5.0, 
+    def search_around_address(self, address: str, radius: float = 5.0,
                              **kwargs) -> List[Dict[str, Any]]:
         """
         Search for properties within a radius of an address.

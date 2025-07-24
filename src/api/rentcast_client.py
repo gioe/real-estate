@@ -13,7 +13,6 @@ import json
 from .http_client import BaseHTTPClient, RateLimiter, HTTPClientError
 from .rentcast_errors import (
     RentCastAPIError, 
-    RentCastClientError, 
     RentCastNoResultsError
 )
 
@@ -640,6 +639,11 @@ class RentCastClient:
             if isinstance(validated_response, list):
                 listings = []
                 for listing_data in validated_response:
+                    # Ensure listing_data is a dictionary
+                    if not isinstance(listing_data, dict):
+                        logger.warning(f"Unexpected listing data type: {type(listing_data)}")
+                        continue
+                        
                     # Map the listing data to PropertyListing format
                     mapped_data = {
                         'id': listing_data.get('id'),
@@ -673,10 +677,15 @@ class RentCastClient:
                     listings=listings,
                     total_count=len(listings)  # API doesn't provide total count for direct list
                 )
+            elif isinstance(validated_response, dict):
+                # Handle dict response format
+                from src.schemas.rentcast_schemas import ListingsResponse
+                return ListingsResponse.from_dict(validated_response)
             else:
-                # Fallback if response format is unexpected
+                # Fallback for unexpected response format
                 logger.warning(f"Unexpected response format for listings/sale: {type(validated_response)}")
-                return PropertiesResponse.from_dict(validated_response)
+                # Return empty ListingsResponse instead of PropertiesResponse
+                return ListingsResponse(listings=[], total_count=0)
         
         except HTTPClientError as e:
             logger.error(f"Failed to get sale listings: {e}")

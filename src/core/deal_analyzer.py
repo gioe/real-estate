@@ -6,7 +6,7 @@ a good deal for someone who will live in it (not rent it out).
 """
 
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 import logging
 
