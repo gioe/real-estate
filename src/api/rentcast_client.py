@@ -6,9 +6,7 @@ Handles authentication, request formatting, response parsing, and RentCast-speci
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Union, TYPE_CHECKING
-from datetime import datetime
-import json
+from typing import Dict, Any, Optional, Union, TYPE_CHECKING
 
 from .http_client import BaseHTTPClient, RateLimiter, HTTPClientError
 from .rentcast_errors import (
@@ -17,10 +15,12 @@ from .rentcast_errors import (
 )
 
 if TYPE_CHECKING:
-    from src.schemas.rentcast_schemas import PropertiesResponse, ListingsResponse, AVMValueResponse
-from ..schemas.rentcast_schemas import Property, PropertiesResponse, parse_property_response
-
-if TYPE_CHECKING:
+    from src.schemas.rentcast_schemas import (
+        PropertiesResponse, 
+        ListingsResponse, 
+        AVMValueResponse,
+        Property
+    )
     from ..core.search_queries import SearchCriteria
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ class RentCastClient:
         
         return response_data
     
-    def search_properties_structured(self, search_criteria: 'SearchCriteria') -> PropertiesResponse:
+    def search_properties_structured(self, search_criteria: 'SearchCriteria') -> 'PropertiesResponse':
         """
         Search for properties using structured search criteria.
         
@@ -190,12 +190,15 @@ class RentCastClient:
         
         try:
             response_data = self._make_request(self.ENDPOINTS['properties'], params=params)
+            # Import at runtime to avoid circular imports
+            from ..schemas.rentcast_schemas import PropertiesResponse
             return PropertiesResponse.from_dict(response_data)
         
         except RentCastAPIError as e:
             logger.error(f"RentCast API error in structured property search: {e}")
             if isinstance(e, RentCastNoResultsError):
                 # Return empty response for no results
+                from ..schemas.rentcast_schemas import PropertiesResponse
                 empty_data = {'data': [], 'total': 0, 'page': 1, 'pageSize': 0}
                 return PropertiesResponse.from_dict(empty_data)
             raise e
@@ -274,7 +277,7 @@ class RentCastClient:
     
     # Convenience methods for common search patterns
     
-    def search_property_by_address(self, address: str, **kwargs) -> PropertiesResponse:
+    def search_property_by_address(self, address: str, **kwargs) -> 'PropertiesResponse':
         """
         Search for a specific property by address.
         
@@ -290,7 +293,7 @@ class RentCastClient:
         return self.search_properties_structured(search_criteria)
     
     def search_properties_in_location(self, city: Optional[str] = None, state: Optional[str] = None,
-                                    zip_code: Optional[str] = None, **kwargs) -> PropertiesResponse:
+                                    zip_code: Optional[str] = None, **kwargs) -> 'PropertiesResponse':
         """
         Search for properties in a specific location.
         
@@ -309,7 +312,7 @@ class RentCastClient:
     
     def search_properties_in_area(self, latitude: Optional[float] = None, longitude: Optional[float] = None,
                                 center_address: Optional[str] = None, radius: float = 5.0,
-                                **kwargs) -> PropertiesResponse:
+                                **kwargs) -> 'PropertiesResponse':
         """
         Search for properties within a geographical area.
         
@@ -335,7 +338,7 @@ class RentCastClient:
                          property_type: Optional[str] = None, bedrooms: Optional[int] = None,
                          bathrooms: Optional[float] = None, min_rent: Optional[float] = None,
                          max_rent: Optional[float] = None, limit: int = 100, offset: int = 0,
-                         **kwargs) -> PropertiesResponse:
+                         **kwargs) -> 'PropertiesResponse':
         """
         Search for properties using RentCast API.
         
@@ -394,13 +397,14 @@ class RentCastClient:
         try:
             response_data = self.client.get(self.ENDPOINTS['properties'], params=params)
             validated_response = self._validate_response(response_data)
+            from ..schemas.rentcast_schemas import PropertiesResponse
             return PropertiesResponse.from_dict(validated_response)
         
         except HTTPClientError as e:
             logger.error(f"Failed to search properties: {e}")
             raise RentCastClientError(f"Property search failed: {e}")
     
-    def get_property_details(self, property_id: str) -> Property:
+    def get_property_details(self, property_id: str) -> 'Property':
         """
         Get detailed information about a specific property.
         
@@ -417,13 +421,14 @@ class RentCastClient:
         try:
             response_data = self.client.get(endpoint)
             validated_response = self._validate_response(response_data)
+            from ..schemas.rentcast_schemas import Property
             return Property.from_dict(validated_response)
         
         except HTTPClientError as e:
             logger.error(f"Failed to get property details for {property_id}: {e}")
             raise RentCastClientError(f"Property details fetch failed: {e}")
     
-    def get_random_properties(self, **kwargs) -> PropertiesResponse:
+    def get_random_properties(self, **kwargs) -> 'PropertiesResponse':
         """
         Get random properties from the API.
         
@@ -438,6 +443,7 @@ class RentCastClient:
         try:
             response_data = self.client.get(self.ENDPOINTS['properties_random'], params=kwargs)
             validated_response = self._validate_response(response_data)
+            from ..schemas.rentcast_schemas import PropertiesResponse
             return PropertiesResponse.from_dict(validated_response)
         
         except HTTPClientError as e:
@@ -500,7 +506,7 @@ class RentCastClient:
             response_data = self.client.get(self.ENDPOINTS['avm_value'], params=params)
             validated_response = self._validate_response(response_data)
             # Import here to avoid circular imports
-            from src.schemas.rentcast_schemas import AVMValueResponse
+            from ..schemas.rentcast_schemas import AVMValueResponse
             return AVMValueResponse.from_dict(validated_response)
         
         except HTTPClientError as e:
@@ -633,7 +639,7 @@ class RentCastClient:
             validated_response = self._validate_response(response_data)
             
             # Import here to avoid circular imports
-            from src.schemas.rentcast_schemas import ListingsResponse, PropertyListing
+            from ..schemas.rentcast_schemas import ListingsResponse, PropertyListing
             
             # The listings/sale endpoint returns a list of listings directly
             if isinstance(validated_response, list):
@@ -679,7 +685,7 @@ class RentCastClient:
                 )
             elif isinstance(validated_response, dict):
                 # Handle dict response format
-                from src.schemas.rentcast_schemas import ListingsResponse
+                from ..schemas.rentcast_schemas import ListingsResponse
                 return ListingsResponse.from_dict(validated_response)
             else:
                 # Fallback for unexpected response format
@@ -691,7 +697,7 @@ class RentCastClient:
             logger.error(f"Failed to get sale listings: {e}")
             raise RentCastClientError(f"Sale listings fetch failed: {e}")
 
-    def get_listing_sale_details(self, listing_id: str) -> Property:
+    def get_listing_sale_details(self, listing_id: str) -> 'Property':
         """
         Get detailed information about a specific sale listing.
         
@@ -708,6 +714,7 @@ class RentCastClient:
         try:
             response_data = self.client.get(endpoint)
             validated_response = self._validate_response(response_data)
+            from ..schemas.rentcast_schemas import Property
             return Property.from_dict(validated_response)
         
         except HTTPClientError as e:
@@ -719,7 +726,7 @@ class RentCastClient:
                                       propertyType: Optional[str] = None, bedrooms: Optional[int] = None,
                                       bathrooms: Optional[float] = None, minRent: Optional[int] = None,
                                       maxRent: Optional[int] = None, limit: int = 20, offset: int = 0,
-                                      **kwargs) -> PropertiesResponse:
+                                      **kwargs) -> 'PropertiesResponse':
         """
         Get long-term rental listings.
         
@@ -778,13 +785,14 @@ class RentCastClient:
         try:
             response_data = self.client.get(self.ENDPOINTS['listings_rental_long_term'], params=params)
             validated_response = self._validate_response(response_data)
+            from ..schemas.rentcast_schemas import PropertiesResponse
             return PropertiesResponse.from_dict(validated_response)
         
         except HTTPClientError as e:
             logger.error(f"Failed to get long-term rental listings: {e}")
             raise RentCastClientError(f"Long-term rental listings fetch failed: {e}")
 
-    def get_listing_rental_long_term_details(self, listing_id: str) -> Property:
+    def get_listing_rental_long_term_details(self, listing_id: str) -> 'Property':
         """
         Get detailed information about a specific long-term rental listing.
         
@@ -801,6 +809,7 @@ class RentCastClient:
         try:
             response_data = self.client.get(endpoint)
             validated_response = self._validate_response(response_data)
+            from ..schemas.rentcast_schemas import Property
             return Property.from_dict(validated_response)
         
         except HTTPClientError as e:

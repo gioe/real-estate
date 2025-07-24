@@ -8,13 +8,11 @@ rate limiting, and retry logic. Includes RentCast-specific error handling.
 import requests
 import time
 import logging
-from typing import Dict, Any, Optional, Union
-from urllib.parse import urljoin, urlencode
+from typing import Dict, Any, Optional
+from urllib.parse import urljoin
 import json
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
-
 
 class HTTPClientError(Exception):
     """Custom exception for HTTP client errors."""
