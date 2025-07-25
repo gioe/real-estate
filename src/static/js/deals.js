@@ -8,6 +8,7 @@ class DealsSearchManager {
         this.initializeElements();
         this.bindEvents();
         this.currentDeals = [];
+        this.metricExplanations = {}; // Store explanations by metric type and deal ID
     }
 
     initializeElements() {
@@ -195,7 +196,8 @@ class DealsSearchManager {
                                     'text-primary',
                                     'list-price',
                                     this.getMetricExplanation('list-price', deal),
-                                    6
+                                    6,
+                                    deal.id || deal.property_id
                                 ) : ''}
                                 ${estimatedValue ? this.createMetricTile(
                                     `$${estimatedValue.toLocaleString()}`, 
@@ -203,7 +205,8 @@ class DealsSearchManager {
                                     'text-success',
                                     'estimated-value',
                                     this.getMetricExplanation('estimated-value', deal),
-                                    6
+                                    6,
+                                    deal.id || deal.property_id
                                 ) : ''}
                                 ${this.createMetricTile(
                                     capRate, 
@@ -211,7 +214,8 @@ class DealsSearchManager {
                                     'text-warning',
                                     'cap-rate',
                                     this.getMetricExplanation('cap-rate', deal),
-                                    6
+                                    6,
+                                    deal.id || deal.property_id
                                 )}
                                 ${this.createMetricTile(
                                     cashFlow, 
@@ -219,7 +223,8 @@ class DealsSearchManager {
                                     'text-info',
                                     'cash-flow',
                                     this.getMetricExplanation('cash-flow', deal),
-                                    6
+                                    6,
+                                    deal.id || deal.property_id
                                 )}
                                 ${estRent ? this.createMetricTile(
                                     `$${estRent.toLocaleString()}/mo`, 
@@ -227,7 +232,8 @@ class DealsSearchManager {
                                     'text-secondary',
                                     'estimated-rent',
                                     this.getMetricExplanation('estimated-rent', deal),
-                                    12
+                                    12,
+                                    deal.id || deal.property_id
                                 ) : ''}
                             </div>
                         </div>
@@ -267,19 +273,29 @@ class DealsSearchManager {
             .replace(/\n/g, '<br>'); // Line breaks
     }
 
-    createMetricTile(value, label, colorClass, metricType, explanation, colSize = 6) {
+    createMetricTile(value, label, colorClass, metricType, explanation, colSize = 6, dealId = null) {
         const uniqueId = `metric-${metricType}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Store explanation for later retrieval
+        if (dealId) {
+            const key = `${dealId}-${metricType}`;
+            this.metricExplanations[key] = explanation;
+        }
         
         return `
             <div class="col-${colSize}">
-                <div class="border rounded p-2 metric-tile" data-metric-type="${metricType}">
+                <div class="border rounded p-2 metric-tile" 
+                     data-metric-type="${metricType}"
+                     data-deal-id="${dealId || ''}"
+                     data-explanation-key="${dealId ? `${dealId}-${metricType}` : ''}">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                         <div class="fw-bold ${colorClass}">${value}</div>
                         <i class="fas fa-info-circle metric-info-icon text-muted" 
                            data-bs-toggle="modal" 
                            data-bs-target="#metricModal"
-                           data-metric-title="${label}"
-                           data-metric-explanation="${this.escapeHtml(explanation)}"
+                           data-metric-title="${this.escapeAttribute(label)}"
+                           data-metric-type="${metricType}"
+                           data-deal-id="${dealId || ''}"
                            title="Click for explanation"
                            style="cursor: pointer; font-size: 0.8rem;"></i>
                     </div>
@@ -418,9 +434,15 @@ class DealsSearchManager {
     }
 
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
-        return div.innerHTML.replace(/"/g, '&quot;');
+        return div.innerHTML;
+    }
+
+    escapeAttribute(text) {
+        if (!text) return '';
+        return text.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     createDealInsights(deal) {
@@ -495,5 +517,5 @@ class DealsSearchManager {
 
 // Initialize the deals search manager when the page loads
 document.addEventListener('DOMContentLoaded', function() {
-    new DealsSearchManager();
+    window.dealsSearchManager = new DealsSearchManager();
 });

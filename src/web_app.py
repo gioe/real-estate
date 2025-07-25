@@ -85,35 +85,46 @@ def generate_agent_description(deal: Dict[str, Any]) -> str:
         Human-readable description of the investment opportunity
     """
     try:
-        # Extract key metrics
-        score = deal.get('overall_score', deal.get('investment_score', 0))
-        cap_rate = deal.get('cap_rate', 0)
-        cash_flow = deal.get('monthly_cash_flow', 0)
-        confidence = deal.get('confidence', deal.get('confidence_score', 0))
+        # Extract key metrics with proper null handling
+        score = deal.get('overall_score') or deal.get('investment_score') or 0
+        cap_rate = deal.get('cap_rate') or 0
+        cash_flow = deal.get('monthly_cash_flow') or 0
+        confidence = deal.get('confidence') or deal.get('confidence_score') or 0
+        
+        # Ensure all numeric values are numbers, not None
+        score = float(score) if score is not None else 0.0
+        cap_rate = float(cap_rate) if cap_rate is not None else 0.0
+        cash_flow = float(cash_flow) if cash_flow is not None else 0.0
+        confidence = float(confidence) if confidence is not None else 0.0
         
         # Property details
         property_type = deal.get('property_type', 'Property')
-        bedrooms = deal.get('bedrooms', 0)
-        bathrooms = deal.get('bathrooms', 0)
-        sqft = deal.get('square_footage', deal.get('square_feet', 0))
+        bedrooms = deal.get('bedrooms') or 0
+        bathrooms = deal.get('bathrooms') or 0
+        sqft = deal.get('square_footage') or deal.get('square_feet') or 0
         
-        # Financial details
-        asking_price = deal.get('asking_price', deal.get('price', deal.get('purchase_price', 0)))
-        estimated_value = deal.get('estimated_value', 0)
-        estimated_rent = deal.get('estimated_rent', 0)
-        deal_type = deal.get('deal_type', deal.get('source', 'investment'))
+        # Financial details with null handling
+        asking_price = deal.get('asking_price') or deal.get('price') or deal.get('purchase_price') or 0
+        estimated_value = deal.get('estimated_value') or 0
+        estimated_rent = deal.get('estimated_rent') or 0
+        deal_type = deal.get('deal_type') or deal.get('source') or 'investment'
+        
+        # Ensure financial values are numbers
+        asking_price = float(asking_price) if asking_price is not None else 0.0
+        estimated_value = float(estimated_value) if estimated_value is not None else 0.0
+        estimated_rent = float(estimated_rent) if estimated_rent is not None else 0.0
         
         # Start building description
         description_parts = []
         
-        # Property overview
+        # Property overview with null checks
         if bedrooms and bathrooms:
-            property_desc = f"{bedrooms}BR/{bathrooms}BA {property_type.lower()}"
+            property_desc = f"{int(bedrooms)}BR/{bathrooms}BA {property_type.lower()}"
         else:
             property_desc = property_type
             
-        if sqft:
-            property_desc += f" ({sqft:,} sqft)"
+        if sqft and sqft > 0:
+            property_desc += f" ({int(sqft):,} sqft)"
             
         # Score-based opening
         if score >= 90:

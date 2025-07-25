@@ -19,7 +19,7 @@ from ..schemas.rentcast_schemas import (
     AVMValueResponse,
     Property
 )
-from ..core.search_queries import SearchCriteria
+from ..search.search_queries import SearchCriteria
 
 
 logger = logging.getLogger(__name__)
@@ -285,7 +285,7 @@ class RentCastClient:
         Returns:
             PropertiesResponse containing the property data
         """
-        from ..core.search_queries import SpecificAddressSearch
+        from ..search.search_queries import SpecificAddressSearch
         search_criteria = SpecificAddressSearch(address=address, **kwargs)
         return self.search_properties_structured(search_criteria)
     
@@ -303,7 +303,7 @@ class RentCastClient:
         Returns:
             PropertiesResponse containing matching properties
         """
-        from ..core.search_queries import LocationSearch
+        from ..search.search_queries import LocationSearch
         search_criteria = LocationSearch(city=city, state=state, zip_code=zip_code, **kwargs)
         return self.search_properties_structured(search_criteria)
     
@@ -323,7 +323,7 @@ class RentCastClient:
         Returns:
             PropertiesResponse containing matching properties
         """
-        from ..core.search_queries import GeographicalAreaSearch
+        from ..search.search_queries import GeographicalAreaSearch
         search_criteria = GeographicalAreaSearch(
             latitude=latitude, longitude=longitude, 
             center_address=center_address, radius=radius, **kwargs

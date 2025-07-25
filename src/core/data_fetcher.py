@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Any, Generator, Union
 from ..api.rentcast_client import RentCastClient, RentCastClientError
 from ..api.http_client import HTTPClientError
 from ..schemas.rentcast_schemas import PropertiesResponse, ListingsResponse
-from .search_queries import (
+from ..search.search_queries import (
     SearchCriteria, SearchQueryBuilder, search_by_address, 
     search_by_location, search_by_coordinates, search_around_address
 )

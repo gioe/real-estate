@@ -275,21 +275,63 @@
 <script>
     // Initialize the page when DOM loads
     document.addEventListener('DOMContentLoaded', function () {
-        const dealSearch = new DealSearch();
+        // DealsSearchManager is initialized in deals.js
+        // No need to initialize here as it's already done in deals.js
 
-        // Set up modal event listener
+        // Set up modal event listener with fallback mechanism
         const metricModal = document.getElementById('metricModal');
         metricModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const title = button.getAttribute('data-metric-title');
-            const explanation = button.getAttribute('data-metric-explanation');
+            const metricType = button.getAttribute('data-metric-type');
+            const dealId = button.getAttribute('data-deal-id');
 
             const modalTitle = metricModal.querySelector('.modal-title');
             const modalBody = metricModal.querySelector('#metricExplanation');
 
             modalTitle.textContent = title + ' - Calculation Details';
-            modalBody.innerHTML = explanation;
+
+            // Try multiple methods to get the explanation
+            let explanation = '';
+
+            // Method 1: Try to get from global manager
+            const dealsManager = window.dealsSearchManager;
+            if (dealsManager && dealId && metricType) {
+                const key = `${dealId}-${metricType}`;
+                explanation = dealsManager.metricExplanations[key] || '';
+            }
+
+            // Method 2: Fallback to generate explanation directly
+            if (!explanation && dealsManager && metricType) {
+                // Find the deal in current deals and generate explanation
+                const deal = dealsManager.currentDeals.find(d =>
+                    (d.id || d.property_id) === dealId
+                );
+                if (deal) {
+                    explanation = dealsManager.getMetricExplanation(metricType, deal);
+                }
+            }
+
+            // Method 3: Show generic explanation based on metric type
+            if (!explanation) {
+                explanation = getGenericMetricExplanation(metricType);
+            }
+
+            modalBody.innerHTML = explanation ||
+                '<p class="text-muted">Explanation temporarily unavailable.</p>';
         });
+
+        // Generic explanations as fallback
+        function getGenericMetricExplanation(metricType) {
+            const explanations = {
+                'list-price': '<strong>List Price</strong> is the asking price set by the seller. This represents the starting point for negotiations.',
+                'estimated-value': '<strong>Estimated Value</strong> is the AI-powered market valuation based on comparable properties and market trends.',
+                'cap-rate': '<strong>Cap Rate</strong> measures the return on investment based on rental income potential. Formula: (Annual Net Income ÷ Property Price) × 100',
+                'cash-flow': '<strong>Cash Flow</strong> is the net monthly income after all expenses and mortgage payments.',
+                'estimated-rent': '<strong>Estimated Rent</strong> is the predicted monthly rental income based on comparable properties in the area.'
+            };
+            return explanations[metricType] || 'Metric explanation not available.';
+        }
     });
 </script>
 

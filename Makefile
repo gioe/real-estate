@@ -46,8 +46,19 @@ db-sample:
 .PHONY: help install install-dev setup clean test lint format run run-fetch run-analyze run-notify run-verbose run-web kill-web restart-web init-db db-stats db-sample check-config demo
 
 # Default Python interpreter (use virtual environment if available)
-PYTHON := $(shell if [ -f .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
-PIP := $(shell if [ -f .venv/bin/pip ]; then echo .venv/bin/pip; else echo pip3; fi)
+# Check for virtual environment and validate it works
+PYTHON := $(shell \
+	if [ -f .venv/bin/python ] && .venv/bin/python -c "import sys" 2>/dev/null; then \
+		echo .venv/bin/python; \
+	else \
+		echo python3; \
+	fi)
+PIP := $(shell \
+	if [ -f .venv/bin/pip ] && .venv/bin/pip --version 2>/dev/null >/dev/null; then \
+		echo .venv/bin/pip; \
+	else \
+		echo pip3; \
+	fi)
 
 # Project directories
 SRC_DIR := src
@@ -72,6 +83,9 @@ help:
 	@echo "=================================================="
 	@echo ""
 	@echo "$(GREEN)Setup & Installation:$(NC)"
+	@echo "  make venv-check   - Check virtual environment status"
+	@echo "  make venv-create  - Create a fresh virtual environment"
+	@echo "  make venv-reset   - Reset venv and reinstall dependencies"
 	@echo "  make install      - Install production dependencies"
 	@echo "  make install-dev  - Install development dependencies"
 	@echo "  make setup        - Initialize project directories and config"
@@ -97,9 +111,11 @@ help:
 	@echo "  make format       - Format code with black"
 	@echo "  make check-config - Validate configuration files"
 	@echo ""
-	@echo "$(GREEN)Utilities:$(NC)"
-	@echo "  make clean        - Clean generated files and caches"
-	@echo "  make demo         - Run interactive demo (creates temp script)"
+		@echo "$(GREEN)Utilities:$(NC)"
+	@echo "  make env-check    - Run comprehensive environment diagnostics"
+	@echo "  make status       - Show comprehensive project status"
+	@echo "  make clean        - Clean temporary files and caches"
+	@echo "  make demo         - Create sample project demo"
 	@echo "  make logs         - Show recent application logs"
 	@echo "  make status       - Show project status and configuration"
 	@echo ""
@@ -107,6 +123,39 @@ help:
 	@echo "  make install && make setup    # First-time setup"
 	@echo "  make run-fetch run-analyze    # Fetch then analyze"
 	@echo "  make format lint test         # Code quality checks"
+
+## venv-check: Check virtual environment status
+venv-check:
+	@echo "$(GREEN)Virtual Environment Status:$(NC)"
+	@echo "Current PYTHON: $(PYTHON)"
+	@echo "Current PIP: $(PIP)"
+	@if [ "$(PYTHON)" = "python3" ]; then \
+		echo "$(YELLOW)⚠️  Using system Python - consider creating a virtual environment$(NC)"; \
+		echo "$(CYAN)Run: python3 -m venv .venv && make install$(NC)"; \
+	else \
+		echo "$(GREEN)✅ Using virtual environment$(NC)"; \
+		$(PYTHON) --version; \
+		echo "Installed packages: $$($(PIP) list | wc -l) packages"; \
+	fi
+
+## venv-create: Create a fresh virtual environment
+venv-create:
+	@echo "$(GREEN)Creating fresh virtual environment...$(NC)"
+	@if [ -d .venv ]; then \
+		echo "$(YELLOW)Removing existing .venv directory...$(NC)"; \
+		rm -rf .venv; \
+	fi
+	@if [ -d venv ]; then \
+		echo "$(YELLOW)Removing existing venv directory...$(NC)"; \
+		rm -rf venv; \
+	fi
+	python3 -m venv .venv
+	@echo "$(GREEN)Virtual environment created at .venv/$(NC)"
+	@echo "$(CYAN)Next step: make install$(NC)"
+
+## venv-reset: Reset virtual environment and reinstall dependencies
+venv-reset: venv-create install
+	@echo "$(GREEN)Virtual environment reset complete!$(NC)"
 
 ## install: Install production dependencies
 install:
@@ -269,7 +318,41 @@ status:
 		echo "$(YELLOW)No recent activity logs$(NC)"; \
 	fi
 
-## clean: Clean generated files and caches
+## env-check: Run comprehensive environment diagnostics
+env-check:
+	@echo "$(GREEN)Running comprehensive environment check...$(NC)"
+	@./scripts/env_check.sh
+
+## status: Show comprehensive project status
+status: venv-check
+	@echo ""
+	@echo "$(GREEN)Project Structure:$(NC)"
+	@echo "  Source directory: $(SRC_DIR)/"
+	@echo "  Config directory: $(CONFIG_DIR)/"
+	@echo "  Data directory: $(DATA_DIR)/"
+	@echo "  Logs directory: $(LOGS_DIR)/"
+	@echo "  Output directory: $(OUTPUT_DIR)/"
+	@echo ""
+	@echo "$(GREEN)Configuration Files:$(NC)"
+	@if [ -f $(CONFIG_DIR)/config.yaml ]; then 
+		echo "  ✅ config.yaml exists"; 
+	else 
+		echo "  ❌ config.yaml missing"; 
+	fi
+	@if [ -f .env ]; then 
+		echo "  ✅ .env exists"; 
+	else 
+		echo "  ❌ .env missing"; 
+	fi
+	@echo ""
+	@echo "$(GREEN)Database:$(NC)"
+	@if [ -f $(DATA_DIR)/real_estate.db ]; then 
+		echo "  ✅ Database exists"; 
+	else 
+		echo "  ❌ Database missing - run 'make init-db'"; 
+	fi
+
+## clean: Clean up temporary files and caches
 clean:
 	@echo "$(GREEN)Cleaning generated files and caches...$(NC)"
 	@find . -type f -name "*.pyc" -delete

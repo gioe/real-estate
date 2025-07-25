@@ -22,12 +22,15 @@ from .api import (
 )
 from .core import (
     RealEstateAnalyzer, RealEstateDataFetcher, DatabaseManager,
-    PaginationManager, APIResponse, PaginationParams, PaginatedResult,
-    SearchQueryBuilder, SearchCriteria, SearchType, PropertyType,
-    SpecificAddressSearch, LocationSearch, GeographicalAreaSearch
+    PaginationManager, APIResponse, PaginationParams, PaginatedResult
+)
+from .search import (
+    SearchCriteria, SearchType, PropertyType,
+    SpecificAddressSearch, LocationSearch, GeographicalAreaSearch,
+    SearchQueryBuilder, search_by_address, search_by_location,
+    search_by_coordinates, search_around_address
 )
 from .config import ConfigManager
-from .notifications import NotificationManager
 from .schemas import Property, PropertiesResponse, PropertyListing, ListingsResponse
 from .visualization import GraphGenerator
 
@@ -69,11 +72,14 @@ __all__ = [
     'LocationSearch',
     'GeographicalAreaSearch',
     
+    # Search convenience functions
+    'search_by_address',
+    'search_by_location',
+    'search_by_coordinates',
+    'search_around_address',
+    
     # Configuration
     'ConfigManager',
-    
-    # Notifications
-    'NotificationManager',
     
     # Main schemas
     'Property',
